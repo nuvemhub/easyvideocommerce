@@ -1,0 +1,513 @@
+<div
+  class="easy-source-container"
+  style="
+    width: 100%;
+    height: 100%;
+    clip-path: fill-box;
+    border-radius: 100%;
+    position: relative;
+    background-color: #000;
+  "
+>
+  <video
+    style="
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+    "
+    autoplay
+    muted
+    disablePictureInPicture
+    playsinline
+  ></video>
+</div>
+<div
+  class="progress-container"
+  style="
+    display: none;
+    justify-content: space-between;
+    position: absolute;
+    top: 10px;
+    left: 0;
+    width: 98%;
+    height: 3px;
+    z-index: 1000;
+    margin: 0 1%;
+    gap: 4px;
+  "
+></div>
+<div
+  class="controls"
+  style="
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+  "
+>
+  <button
+    type="button"
+    class="control-left"
+    style="height: 100%; width: 100%; display: flex; align-items: center"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      fill="white"
+      viewBox="0 0 24 24"
+      style="margin-right: auto; margin-left: 6px"
+    >
+      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="control-center"
+    style="
+      height: 100%;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    "
+  >
+    <div
+      class="control-center-icon-container"
+      style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        border-radius: 100%;
+        position: absolute;
+        width: 70px;
+        height: 70px;
+        background-color: rgba(32, 32, 32, 0.7);
+      "
+    >
+      <svg
+        class="unmute-icon"
+        width="38"
+        height="38"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        style="display: flex"
+      >
+        <path
+          d="M18.36 19.36a1 1 0 0 1-.7-.29 1 1 0 0 1 0-1.41 8 8 0 0 0 0-11.32 1 1 0 0 1 1.41-1.41 10 10 0 0 1 0 14.14 1 1 0 0 1-.71.29Z"
+          style="fill: white"
+        />
+        <path
+          d="M15.54 16.54a1 1 0 0 1-.71-.3 1 1 0 0 1 0-1.41 4 4 0 0 0 0-5.66 1 1 0 0 1 1.41-1.41 6 6 0 0 1 0 8.48 1 1 0 0 1-.7.3ZM11.38 4.08a1 1 0 0 0-1.09.21L6.59 8H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2.59l3.7 3.71A1 1 0 0 0 11 20a.84.84 0 0 0 .38-.08A1 1 0 0 0 12 19V5a1 1 0 0 0-.62-.92Z"
+          style="fill: white"
+        />
+      </svg>
+      <svg
+        class="mute-icon"
+        width="38"
+        height="38"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        style="display: none"
+      >
+        <path
+          d="M11.38 4.08a1 1 0 0 0-1.09.21L6.59 8H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2.59l3.7 3.71A1 1 0 0 0 11 20a.84.84 0 0 0 .38-.08A1 1 0 0 0 12 19V5a1 1 0 0 0-.62-.92ZM16 15.5a1 1 0 0 1-.71-.29 1 1 0 0 1 0-1.42l5-5a1 1 0 0 1 1.42 1.42l-5 5a1 1 0 0 1-.71.29Z"
+          style="fill: white"
+        />
+        <path
+          d="M21 15.5a1 1 0 0 1-.71-.29l-5-5a1 1 0 0 1 1.42-1.42l5 5a1 1 0 0 1 0 1.42 1 1 0 0 1-.71.29Z"
+          style="fill: white"
+        />
+      </svg>
+    </div>
+  </button>
+  <button
+    type="button"
+    class="control-right"
+    style="height: 100%; width: 100%; display: flex; align-items: center"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      fill="white"
+      viewBox="0 0 24 24"
+      style="margin-left: auto; margin-right: 6px"
+    >
+      <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+    </svg>
+  </button>
+</div>
+<div
+  class="header-controls"
+  style="
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+
+    position: absolute;
+    top: 28px;
+    right: 10px;
+    z-index: 1000;
+  "
+>
+  <button
+    type="button"
+    class="btn-restart"
+    style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      cursor: pointer;
+    "
+  >
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g clip-path="url(#clip0_429_11071)">
+        <path
+          d="M12 2.99982C16.9706 2.99982 21 7.02925 21 11.9998C21 16.9704 16.9706 20.9998 12 20.9998C7.02944 20.9998 3 16.9704 3 11.9998C3 9.17255 4.30367 6.64977 6.34267 4.99982"
+          stroke="white"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M3 4.49982H7V8.49982"
+          stroke="white"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </g>
+      <defs>
+        <clipPath id="clip0_429_11071">
+          <rect width="24" height="24" fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="btn-pause"
+    style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      cursor: pointer;
+    "
+  >
+    <svg fill="white" width="24" height="24" viewBox="0 0 48 48">
+      <path
+        d="M15 1c-3.3 0-6 1.3-6 3v40c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3zm18 0c-3.3 0-6 1.3-6 3v40c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3z"
+      ></path>
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="btn-play"
+    style="
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      cursor: pointer;
+    "
+  >
+    <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+      <path
+        d="M5.888 22.5a3.46 3.46 0 0 1-1.721-.46l-.003-.002a3.451 3.451 0 0 1-1.72-2.982V4.943a3.445 3.445 0 0 1 5.163-2.987l12.226 7.059a3.444 3.444 0 0 1-.001 5.967l-12.22 7.056a3.462 3.462 0 0 1-1.724.462Z"
+      ></path>
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="btn-close"
+    style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      cursor: pointer;
+    "
+  >
+    <svg
+      width="34"
+      height="34"
+      viewBox="0 0 16 16"
+      xmlns="http://www.w3.org/2000/svg"
+      style="margin-left: -6px"
+    >
+      <path
+        fill="white"
+        fill-rule="evenodd"
+        d="M11.2929,3.29289 C11.6834,2.90237 12.3166,2.90237 12.7071,3.29289 C13.0976,3.68342 13.0976,4.31658 12.7071,4.70711 L9.41421,8 L12.7071,11.2929 C13.0976,11.6834 13.0976,12.3166 12.7071,12.7071 C12.3166,13.0976 11.6834,13.0976 11.2929,12.7071 L8,9.41421 L4.70711,12.7071 C4.31658,13.0976 3.68342,13.0976 3.29289,12.7071 C2.90237,12.3166 2.90237,11.6834 3.29289,11.2929 L6.58579,8 L3.29289,4.70711 C2.90237,4.31658 2.90237,3.68342 3.29289,3.29289 C3.68342,2.90237 4.31658,2.90237 4.70711,3.29289 L8,6.58579 L11.2929,3.29289 Z"
+      />
+    </svg>
+  </button>
+</div>
+<div
+  class="extra-control"
+  style="
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    position: absolute;
+    right: 8px;
+  "
+>
+  <button
+    type="button"
+    class="btn-like"
+    style="
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+      z-index: 1000;
+      transition: transform 0.2s;
+    "
+  >
+    <svg
+      aria-label="Curtir"
+      fill="#fff"
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      class="like-icon-disabled"
+      style="display: flex"
+    >
+      <path
+        d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.763 1.12 1.763s.278-.588 1.11-1.766a4.17 4.17 0 0 1 3.679-1.938m0-2a6.04 6.04 0 0 0-4.797 2.127 6.052 6.052 0 0 0-4.787-2.127A6.985 6.985 0 0 0 .5 9.122c0 3.61 2.55 5.827 5.015 7.97.283.246.569.494.853.747l1.027.918a44.998 44.998 0 0 0 3.518 3.018 2 2 0 0 0 2.174 0 45.263 45.263 0 0 0 3.626-3.115l.922-.824c.293-.26.59-.519.885-.774 2.334-2.025 4.98-4.32 4.98-7.94a6.985 6.985 0 0 0-6.708-7.218Z"
+      />
+    </svg>
+    <svg
+      class="like-icon-enabled"
+      fill="#ff3040"
+      width="28"
+      height="28"
+      role="img"
+      viewBox="0 0 48 48"
+      style="display: none"
+    >
+      <path
+        d="M34.6 3.1c-4.5 0-7.9 1.8-10.6 5.6-2.7-3.7-6.1-5.5-10.6-5.5C6 3.1 0 9.6 0 17.6c0 7.3 5.4 12 10.6 16.5.6.5 1.3 1.1 1.9 1.7l2.3 2c4.4 3.9 6.6 5.9 7.6 6.5.5.3 1.1.5 1.6.5s1.1-.2 1.6-.5c1-.6 2.8-2.2 7.8-6.8l2-1.8c.7-.6 1.3-1.2 2-1.7C42.7 29.6 48 25 48 17.6c0-8-6-14.5-13.4-14.5z"
+      ></path>
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="btn-comments"
+    style="
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: pointer;
+      z-index: 1000;
+    "
+  >
+    <div>
+      <svg
+        aria-label="Comentar"
+        fill="none"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M20.656 17.008a9.993 9.993 0 1 0-3.59 3.615L22 22Z"
+          stroke="#fff"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </svg>
+    </div>
+  </button>
+  <button
+    type="button"
+    class="btn-wpp"
+    style="
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      cursor: not-allowed;
+      z-index: 1000;
+      opacity: 0.4;
+    "
+  >
+    <div>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0.07 0.07 0.9 0.9"
+        xmlns="http://www.w3.org/2000/svg"
+        xml:space="preserve"
+        fill="#fff"
+      >
+        <path
+          d="M.726.612A5.224 5.224 0 0 1 .652.577C.643.573.635.573.626.581.617.59.6.616.591.625.587.634.578.634.569.629A.365.365 0 0 1 .482.577.48.48 0 0 1 .421.503C.417.494.421.486.425.481.429.477.434.468.442.464.446.46.451.451.451.447.455.443.455.434.451.43A.892.892 0 0 1 .416.351C.412.32.403.32.394.32H.372C.363.32.35.329.346.333a.126.126 0 0 0-.039.092.222.222 0 0 0 .044.114c.048.07.109.127.184.162.022.009.039.017.061.022a.118.118 0 0 0 .07.004A.11.11 0 0 0 .74.675.068.068 0 0 0 .744.623L.727.614M.836.216a.435.435 0 0 0-.687.523L.087.962.319.901A.431.431 0 0 0 .958.52.43.43 0 0 0 .836.214M.718.826a.367.367 0 0 1-.377.009L.328.826.192.861.227.73.218.717C.113.542.166.323.336.214s.39-.052.495.114a.361.361 0 0 1-.114.499"
+        />
+      </svg>
+    </div>
+    <span style="color: #fff; margin-top: 8px; font-size: 14px">Dúvidas</span>
+  </button>
+</div>
+<div
+  id="comments-container"
+  style="
+    display: none;
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    overflow: hidden;
+  "
+>
+  <div
+    class="overlay"
+    style="width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4)"
+  ></div>
+  <div
+    class="wrapper"
+    style="
+      position: absolute;
+      bottom: -100%;
+      transition: bottom 1s;
+      height: 60%;
+      width: 100%;
+      background-color: #222;
+      border-top-left-radius: 38px;
+      border-top-right-radius: 38px;
+    "
+  >
+    <div
+      class="content"
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 14px;
+      "
+    >
+      <h2 style="color: #fff; font-size: 18px; margin-top: 10px">
+        Comentários
+      </h2>
+      <textarea
+        name="comments"
+        id="comment-input"
+        rows="8"
+        maxlength="100"
+        placeholder="Deixe seu comentário para que possamos aprimorar nosso conteúdo e esclarecer todas as suas dúvidas. Sua opinião é muito importante para nós!"
+        style="
+          margin-top: 30px;
+          width: 94%;
+          border-radius: 8px;
+          padding: 12px;
+          font-size: 16px;
+        "
+      ></textarea>
+      <button
+        type="button"
+        class="submit-comment"
+        style="
+          background-color: #edf2f7;
+          font-weight: bold;
+          width: 94%;
+          padding: 14px 0;
+          margin-top: 24px;
+          border-radius: 4px;
+          font-size: 16px;
+        "
+      >
+        Enviar
+      </button>
+
+      <button
+        type="button"
+        class="comments-btn-close"
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          top: 20px;
+          right: 22px;
+          background-color: rgba(255, 255, 255, 0.8);
+          border: none;
+          border-radius: 100%;
+          width: 40px;
+          height: 40px;
+          cursor: pointer;
+          z-index: 1000;
+        "
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="85%"
+          height="85%"
+          fill="black"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M18.3 5.71a.996.996 0 00-1.41 0L12 10.59 7.11 5.7A.996.996 0 105.7 7.11L10.59 12 5.7 16.89a.996.996 0 101.41 1.41L12 13.41l4.89 4.89a.996.996 0 101.41-1.41L13.41 12l4.89-4.89c.38-.38.38-1.02 0-1.4z"
+          />
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+<span
+  class="hello-message"
+  style="
+    display: flex;
+    font-weight: 700;
+    border-radius: 24px;
+    padding: 8px 16px;
+    background-color: #fff;
+    color: #000;
+    border: 2px solid #000;
+    position: absolute;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.5s;
+  "
+>
+  Hello!
+</span>
+<div
+  id="loading"
+  style="
+    display: flex;
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100000;
+    color: #fff;
+    font-weight: bold;
+    font-size: 16px;
+  "
+>
+  Loading...
+</div>
