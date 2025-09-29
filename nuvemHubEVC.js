@@ -1,0 +1,32 @@
+(function () {
+  const s = document.createElement('script');
+  s.defer = true;
+
+  const script = document.currentScript;
+
+  if (!script?.src) {
+    console.error('[NuvemHub] Easy Video Commerce: script source not found.');
+    return;
+  }
+
+  const url = new URL(document.currentScript.src);
+  const storeId = url.searchParams.get('storeId');
+  const scriptVersion = url.searchParams.get('vapp');
+
+  if (!storeId || !scriptVersion) {
+    console.error('[NuvemHub] Easy Video Commerce: storeId or scriptVersion not found in script URL parameters.');
+    return;
+  }
+
+  const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
+  const localhost = window.location.hostname === 'localhost';
+  const isDebugMode = debug || localhost;
+
+  if (isDebugMode) {
+    s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${scriptVersion}`;
+    return document.body.appendChild(s);
+  } else {
+    s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${scriptVersion}`;
+    document.body.appendChild(s);
+  }
+})();
