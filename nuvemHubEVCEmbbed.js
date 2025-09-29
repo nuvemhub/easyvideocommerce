@@ -71,11 +71,14 @@ var easyDataLayer = {
       const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
       const localhost = window.location.hostname === 'localhost';
       const isDebugMode = debug || localhost;
+      const isTesting = window.location.host === 'testing.nuvemhub.com.br';
 
       if (isDebugMode) {
         easyDataLayer.config.apiUrl = "http://localhost:3002";
+      } else if (isTesting) {
+        easyDataLayer.config.apiUrl = "https://easyvc-test.nuvemhub.com.br";
       } else {
-        easyDataLayer.config.apiUrl = "https://api.nuvemhub.com.br";
+        easyDataLayer.config.apiUrl = "https://easyvc.nuvemhub.com.br";
       }
     }, 'setup');
   },

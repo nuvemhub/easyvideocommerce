@@ -18,15 +18,6 @@
     return;
   }
 
-  const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
-  const localhost = window.location.hostname === 'localhost';
-  const isDebugMode = debug || localhost;
-
-  if (isDebugMode) {
-    s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${scriptVersion}`;
-    return document.body.appendChild(s);
-  } else {
-    s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${scriptVersion}`;
-    document.body.appendChild(s);
-  }
+  s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${scriptVersion}`;
+  document.body.appendChild(s);
 })();
