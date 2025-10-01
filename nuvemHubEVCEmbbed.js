@@ -106,8 +106,7 @@ var easyDataLayer = {
         pushData['event'] = "easyvc_interaction";
 
         window.dataLayer.push(pushData);
-      }
-      if (window?.gtag) {
+      } else if (window?.gtag) {
         window.gtag('event', "easyvc_interaction", pushData);
       }
     }, 'sendAnalyticsEvent');
