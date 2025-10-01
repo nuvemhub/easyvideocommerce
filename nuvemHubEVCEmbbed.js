@@ -687,7 +687,8 @@ var easyDataLayer = {
 
   getEasyCampaigns: function () {
     return new Promise((resolve) => {
-      const query = `filter=${encodeURIComponent(window.location.pathname)}`;
+      const lowercasePath = window.location.pathname.toLowerCase();
+      const query = `filter=${encodeURIComponent(lowercasePath)}`;
 
       fetch(`${easyDataLayer.config.apiUrl}/campaign/list/display/${easyDataLayer.config.storeId}?${query}`)
         .then(function (result) {
