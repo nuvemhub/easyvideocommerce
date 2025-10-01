@@ -89,10 +89,10 @@ var easyDataLayer = {
 
       const pushData = {
         'easyvc_uuid': easyDataLayer.analytics.uuid,
-        ...(easyDataLayer.analytics.campaignId && { 'easyvc_campaign': easyDataLayer.analytics.campaignId }),
         'easyvc_type': eventType,
+        ...(easyDataLayer.analytics.campaignId && { 'easyvc_campaign': easyDataLayer.analytics.campaignId }),
         ...(easyDataLayer.analytics.testId && { easyvc_test: easyDataLayer.analytics.testId }),
-        ...(data && typeof data === 'object' && { easyvc_data: JSON.stringify(data) })
+        ...(data && typeof data === 'object' ? { easyvc_data: JSON.stringify(data) } : {})
       };
 
       // NuvemShop Analytics 4
