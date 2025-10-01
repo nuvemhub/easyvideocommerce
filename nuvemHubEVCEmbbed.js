@@ -438,6 +438,12 @@ var easyDataLayer = {
           likeBtn.style.transform = "scale(1)";
         }, 300);
       }
+
+      // simulate purchase event
+      const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
+      if (debug) {
+        easyDataLayer.sendAnalyticsEvent('purchase', { value: 99.9, currency: 'BRL' });
+      }
     }, 'handleLike');
   },
 
