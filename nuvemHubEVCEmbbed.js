@@ -102,10 +102,13 @@ var easyDataLayer = {
       }
 
       // Default Analytics 4
-      if (window?.dataLayer?.length > 0) {
+      if (window?.dataLayer) {
         pushData['event'] = "easyvc_interaction";
 
         window.dataLayer.push(pushData);
+      }
+      if (window?.gtag) {
+        window.gtag('event', "easyvc_interaction", pushData);
       }
     }, 'sendAnalyticsEvent');
   },
