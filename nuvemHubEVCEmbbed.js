@@ -1410,29 +1410,37 @@ var easyDataLayer = {
 
       const result = await easyDataLayer.getEasyCampaigns();
 
-      if (!result?._id) return;
-
-      easyDataLayer.analytics.campaignId = result._id;
-
-      if (result?.abTestId) {
-        easyDataLayer.analytics.testId = result.abTestId;
+      if (!result?.campaigns || easyDataLayer.utils.isEmpty(result.campaigns)) {
+        console.log("[NuvemHub] Easy Video Commerce: no campaigns found");
+        return;
       }
+
+      const split = Math.random() < 0.5;
+      let campaign = result.campaigns[0];
+
+      if (result.campaigns.length > 1 && result?.abTestId) {
+        easyDataLayer.analytics.testId = result.abTestId;
+
+        campaign = split ? result.campaigns[0] : result.campaigns[1];
+      }
+
+      easyDataLayer.analytics.campaignId = campaign._id;
 
       easyDataLayer.setHTML();
       easyDataLayer.observeUrlChange();
 
       await easyDataLayer.utils.waitForElements("#easy-video-commerce-nh video, #easy-video-commerce-nh span.hello-message");
-      const videos = result?.["videos"];
+      const videos = campaign?.["videos"];
       if (easyDataLayer.utils.isEmpty(videos)) return;
 
       easyDataLayer.setSource(videos);
-      easyDataLayer.setVideoSide(result?.["position"]);
-      easyDataLayer.setHelloMessage(result?.["helloMessage"]);
-      if (result?.personalization?.color) {
-        easyDataLayer.setCustomColor(result.personalization.color);
+      easyDataLayer.setVideoSide(campaign?.["position"]);
+      easyDataLayer.setHelloMessage(campaign?.["helloMessage"]);
+      if (campaign?.personalization?.color) {
+        easyDataLayer.setCustomColor(campaign.personalization.color);
       }
-      if (result?.whatsapp) {
-        const numberOnly = result.whatsapp?.replace(/\D/g, '');
+      if (campaign?.whatsapp) {
+        const numberOnly = campaign.whatsapp?.replace(/\D/g, '');
         easyDataLayer.config.whatsapp = numberOnly;
         easyDataLayer.setWppEvent();
       }
