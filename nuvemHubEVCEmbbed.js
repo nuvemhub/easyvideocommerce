@@ -2,30 +2,45 @@
 /* global Hammer */
 var easyDataLayer = {
   config: {
+    // Used to fetch html and others assets
     embbedUrl: null,
+    // Used to fetch data from API
     apiUrl: null,
+    // Others
+    lang: 'en',
+    debug: false,
+  },
+
+  store: {
     storeId: null,
     whatsapp: null,
-    productId: null,
-    lang: 'en',
   },
 
   videoData: {
     position: null,
     videoIndex: 0,
     allSources: [],
-    progressBarActionInstance: null,
+
     preloadStarted: false,
-    muteTimeInstance: null,
     playNextFireTimeInstance: null,
     playNextFireCalls: 0,
     handlePreLoadingTimeInstance: null,
     handleEndedMediaTimeInstance: null,
     restartCurrentMediaTimeInstance: null,
-    helloMessageTimeInstance: null,
-    helloMessage: null,
+
     eventListenerAdded: [],
     allVideosAttachedData: [],
+
+    muteTimeInstance: null,
+  },
+
+  uiData: {
+    isMobile: window.innerWidth < 768,
+    helloMessageTimeInstance: null,
+    helloMessage: null,
+    hasAlertMessageEventListener: false,
+    alertMessageTimeInstance: null,
+    modalCommentsTimeInstance: null,
   },
 
   dnd: {
@@ -35,62 +50,65 @@ var easyDataLayer = {
   },
 
   analytics: {
-    // aux data
+    // custom dimensions
     uuid: null,
     campaignId: null,
     testId: null,
-    // control
+    // local control
     viewTriggered: false,
     errorTriggered: false,
   },
 
-  store: {
-    app: null,
-  },
-
   setup: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const script = document.currentScript;
-      if (!script?.src) {
-        console.error('[NuvemHub] Easy Video Commerce: script source not found.');
+      const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
+      const isLocalhost = window.location.hostname === 'localhost';
+      const isDebugMode = debug || isLocalhost;
+
+      if (isDebugMode) {
+        Object.assign(easyDataLayer.config, {
+          debug: true,
+          embbedUrl: "http://localhost:3002/dev/playground",
+          apiUrl: "http://localhost:3002",
+        });
+        easyDataLayer.store.storeId = '68db768056203d3a5512d433';
+        console.log('[NuvemHub] Easy Video Commerce: Partial Setup for Debug/Localhost mode.');
         return;
       }
 
-      const url = new URL(document.currentScript.src);
+      const script = document.currentScript;
+      if (!script?.src) {
+        console.error('[NuvemHub] Easy Video Commerce: Stoped on setup, script source not found.');
+        return;
+      }
+
+      const url = new URL(script.src);
       const storeId = url.searchParams.get('storeId');
       const scriptVersion = url.searchParams.get('vapp');
 
       if (!storeId || !scriptVersion) {
-        console.error('[NuvemHub] Easy Video Commerce: storeId or scriptVersion not found in script URL parameters.');
+        console.error('[NuvemHub] Easy Video Commerce: Stoped on setup, storeId or scriptVersion not found in script URL parameters.');
         return;
       }
 
-      easyDataLayer.config.storeId = storeId;
+      easyDataLayer.store.storeId = storeId;
       easyDataLayer.config.embbedUrl = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${scriptVersion}/dist`;
 
-      const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
-      const localhost = window.location.hostname === 'localhost';
-      const isDebugMode = debug || localhost;
       const isTesting = window.location.host === 'testing.nuvemhub.com.br';
-
-      if (isDebugMode) {
-        easyDataLayer.config.apiUrl = "http://localhost:3002";
-      } else if (isTesting) {
-        easyDataLayer.config.apiUrl = "https://easyvc-test.nuvemhub.com.br";
-      } else {
-        easyDataLayer.config.apiUrl = "https://easyvc.nuvemhub.com.br";
-      }
+      easyDataLayer.config.apiUrl = isTesting
+        ? "https://easyvc-test.nuvemhub.com.br"
+        : "https://easyvc.nuvemhub.com.br";
     }, 'setup');
   },
 
   sendAnalyticsEvent: function (eventType, data) {
     easyDataLayer.utils.executeWithLogging(() => {
-      if (!eventType) return;
+      if (!eventType || easyDataLayer.config.debug) return;
 
       const pushData = {
-        'easyvc_uuid': easyDataLayer.analytics.uuid,
-        'easyvc_type': eventType,
-        ...(easyDataLayer.analytics.campaignId && { 'easyvc_campaign': easyDataLayer.analytics.campaignId }),
+        easyvc_uuid: easyDataLayer.analytics.uuid,
+        easyvc_type: eventType,
+        ...(easyDataLayer.analytics.campaignId && { easyvc_campaign: easyDataLayer.analytics.campaignId }),
         ...(easyDataLayer.analytics.testId && { easyvc_test: easyDataLayer.analytics.testId }),
         ...(data && typeof data === 'object' ? { easyvc_data: JSON.stringify(data) } : {})
       };
@@ -103,87 +121,176 @@ var easyDataLayer = {
 
       // Default Analytics 4
       if (window?.dataLayer) {
-        pushData['event'] = "easyvc_interaction";
-
-        window.dataLayer.push(pushData);
+        window.dataLayer.push({ ...pushData, event: "easyvc_interaction" });
       } else if (window?.gtag) {
         window.gtag('event', "easyvc_interaction", pushData);
       }
     }, 'sendAnalyticsEvent');
   },
 
-  handleMaximaze: function (isMobile) {
+  i18n: function (data) {
+    return easyDataLayer.utils.executeWithLogging(() => {
+      if (easyDataLayer.config.lang === 'pt' && data?.pt) {
+        return data?.pt;
+      }
+      if (easyDataLayer.config.lang === 'es' && data?.es) {
+        return data?.es;
+      }
+      if (data?.en) {
+        return data?.en;
+      }
+
+      return "i18n text not found";
+    }, 'i18n');
+  },
+
+  setStyleHelper: function (el, prop, value) {
     easyDataLayer.utils.executeWithLogging(() => {
-      const maxDesktop = () => {
-        document.querySelector("#easy-video-commerce-nh-container").style.bottom = '14px';
-        document.querySelector("#easy-video-commerce-nh-container").style.top = '14px';
-        document.querySelector("#easy-video-commerce-nh-container").style.left = '50%';
-        document.querySelector("#easy-video-commerce-nh-container").style.transform = 'translateX(-50%)';
-
-        document.querySelector("#easy-video-commerce-nh-container").style.height = "calc(100vh - 28px)";
-        document.querySelector("#easy-video-commerce-nh-container").style.width = "calc((100vh - 28px) * 0.6)";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.height = "100%";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.width = "100%";
-        document.querySelector("#easy-video-commerce-nh .easy-source-container").style.borderRadius = "8px";
-        document.querySelector("#easy-video-commerce-nh-fade-desktop").style.display = 'flex';
-        document.querySelector("#easy-video-commerce-nh-fade-desktop").style.zIndex = '1909999999';
-
-        easyDataLayer.restartCurrentMedia();
+      if (el) {
+        el.style.setProperty(prop, value, 'important');
       }
-      const maxMobile = () => {
-        document.querySelector("#easy-video-commerce-nh-container").style.left = "0";
-        document.querySelector("#easy-video-commerce-nh-container").style.bottom = "0";
-        document.querySelector("#easy-video-commerce-nh-container").style.top = "0";
-        document.querySelector("#easy-video-commerce-nh-container").style.height = "100%";
-        document.querySelector("#easy-video-commerce-nh-container").style.width = "100%";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.height = "100%";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.width = "100%";
-        document.querySelector("#easy-video-commerce-nh .easy-source-container").style.borderRadius = "0";
+    }, 'setStyleHelper');
+  },
 
-        easyDataLayer.addDisableZoomPageEvent();
+  identifyWhatsappNumberOnWebsite: function () {
+    easyDataLayer.utils.executeWithLogging(() => {
+      const links = Array.from(document.querySelectorAll('a[href*="wa.me"], a[href*="api.whatsapp.com"], a[href*="web.whatsapp.com"]'));
+
+      // Usa Set para garantir unicidade e evitar duplicatas
+      const numeros = new Set();
+
+      links.forEach(link => {
+        const href = link.href;
+
+        // Expressão regular cobre os principais formatos de links do WhatsApp
+        // Ex: https://wa.me/5511999999999, https://api.whatsapp.com/send?phone=5511999999999
+        const match =
+          href.match(/(?:wa\.me\/|phone=|send\?text=.*?&phone=)(\d{10,15})/i) ||
+          href.match(/(?:wa\.me\/|phone=)(\d{10,15})/i);
+
+        if (match && match[1]) {
+          numeros.add(match[1]);
+        }
+      });
+
+      // Pega o primeiro número único encontrado
+      const [firstNumber] = numeros;
+
+      if (firstNumber) {
+        easyDataLayer.store.whatsapp = firstNumber;
+        easyDataLayer.setupWppEvent();
       }
+    }, 'identifyWhatsappNumberOnWebsite');
+  },
 
+  setMinimizedContainerSize: function () {
+    const container = document.querySelector("#easy-video-commerce-nh-container");
+    const easyNh = document.querySelector("#easy-video-commerce-nh");
+    const sourceContainer = document.querySelector("#easy-video-commerce-nh .easy-source-container");
+
+    // Dynamic sizes - @REFACTOR
+    if (easyDataLayer.uiData.isMobile) {
+      // Mobile
+      easyDataLayer.setStyleHelper(container, 'height', "110px");
+      easyDataLayer.setStyleHelper(container, 'width', "110px");
+      easyDataLayer.setStyleHelper(easyNh, 'height', "100px");
+      easyDataLayer.setStyleHelper(easyNh, 'width', "100px");
+    } else {
+      // Desktop
+      easyDataLayer.setStyleHelper(container, 'height', "130px");
+      easyDataLayer.setStyleHelper(container, 'width', "130px");
+      easyDataLayer.setStyleHelper(easyNh, 'height', "120px");
+      easyDataLayer.setStyleHelper(easyNh, 'width', "120px");
+    }
+    easyDataLayer.setStyleHelper(sourceContainer, 'border-radius', "100%");
+  },
+
+  handleMaximaze: function () {
+    easyDataLayer.utils.executeWithLogging(() => {
       const container = document.querySelector("#easy-video-commerce-nh-container");
+      if (!container) return;
+
+      // Evita maximizar enquanto está arrastando
       if (container.classList.contains("dragging")) return;
 
+      // Sempre desmuta ao maximizar
       easyDataLayer.handleControlMuteAndUnmute(false);
 
-      document.querySelector("#easy-video-commerce-nh-container").style.borderWidth = '0';
-      document.querySelector("#easy-video-commerce-nh-container").classList.toggle("maximized");
-      document.querySelector("#easy-video-commerce-nh-container").style.zIndex = '1999999999';
+      // Ajusta container e conteúdo para maximizado
+      easyDataLayer.setStyleHelper(container, 'border-width', '0');
+      container.classList.toggle("maximized");
+      easyDataLayer.setStyleHelper(container, 'z-index', '1999999999');
 
+      const easyNh = container.querySelector("#easy-video-commerce-nh");
+      if (easyNh) {
+        easyDataLayer.setStyleHelper(easyNh, 'height', "100%");
+        easyDataLayer.setStyleHelper(easyNh, 'width', "100%");
+      }
 
-      document.querySelector("#easy-video-commerce-nh span.hello-message").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .progress-container").style.display = "flex";
+      // Esconde mensagem de hello e mostra controles principais
+      const helloMsg = container.querySelector("span.hello-message");
+      if (helloMsg) easyDataLayer.setStyleHelper(helloMsg, 'display', "none");
 
-      document.querySelector("#easy-video-commerce-nh .controls").style.display = "flex";
+      const progressContainer = container.querySelector(".progress-container");
+      if (progressContainer) easyDataLayer.setStyleHelper(progressContainer, 'display', "flex");
+
+      const controls = container.querySelector(".controls");
+      if (controls) easyDataLayer.setStyleHelper(controls, 'display', "flex");
+
+      // Esconde central icon após 1.5s
       setTimeout(() => {
-        document.querySelector("#easy-video-commerce-nh .controls .control-center .control-center-icon-container").style.display = "none";
+        const centerIcon = container.querySelector(".controls .control-center .control-center-icon-container");
+        if (centerIcon) easyDataLayer.setStyleHelper(centerIcon, 'display', "none");
       }, 1500);
 
-      document.querySelector("#easy-video-commerce-nh .header-controls").style.display = "flex";
-      document.querySelector("#easy-video-commerce-nh .btn-like").style.display = "flex";
-      document.querySelector("#easy-video-commerce-nh .btn-comments").style.display = "flex";
-      document.querySelector("#easy-video-commerce-nh .btn-wpp").style.display = "flex";
-      if (easyDataLayer.config.whatsapp) {
-        document.querySelector("#easy-video-commerce-nh .btn-wpp").style.opacity = "1";
-        document.querySelector("#easy-video-commerce-nh .btn-wpp").style.cursor = "pointer";
+      // Mostra botões e header
+      const showSelectors = [
+        ".header-title",
+        ".header-controls",
+        ".extra-control"
+      ];
+      showSelectors.forEach(sel => {
+        const el = container.querySelector(sel);
+        if (el) easyDataLayer.setStyleHelper(el, 'display', "flex");
+      });
+
+      // Mostra botão WhatsApp se existir número
+      if (easyDataLayer.store.whatsapp) {
+        const btnWpp = container.querySelector(".btn-wpp");
+        if (btnWpp) easyDataLayer.setStyleHelper(btnWpp, 'display', "flex");
       }
 
-      const productImages = document.querySelectorAll('#easy-video-commerce-nh .product-showcase-image');
-      productImages.forEach(image => image.style.display = 'flex');
+      // Reinicia vídeo atual
+      easyDataLayer.restartCurrentMedia();
 
-      const showcase = document.querySelector('#easy-video-commerce-nh #featured-product-showcase');
-      if (showcase) showcase.style.display = 'flex';
-
-
-      if (isMobile) {
-        maxMobile();
+      // Aplica estilos de maximizado conforme device
+      const sourceContainer = container.querySelector(".easy-source-container");
+      if (easyDataLayer.uiData.isMobile) {
+        // Mobile
+        easyDataLayer.setStyleHelper(container, 'top', "0");
+        easyDataLayer.setStyleHelper(container, 'bottom', "0");
+        easyDataLayer.setStyleHelper(container, 'left', "0");
+        easyDataLayer.setStyleHelper(container, 'height', "100%");
+        easyDataLayer.setStyleHelper(container, 'width', "100%");
+        if (sourceContainer) easyDataLayer.setStyleHelper(sourceContainer, 'border-radius', "0");
+        easyDataLayer.addDisableZoomPageEvent();
       } else {
-        maxDesktop();
+        // Desktop
+        easyDataLayer.setStyleHelper(container, 'top', '14px');
+        easyDataLayer.setStyleHelper(container, 'bottom', '14px');
+        easyDataLayer.setStyleHelper(container, 'left', '50%');
+        easyDataLayer.setStyleHelper(container, 'transform', 'translateX(-50%)');
+        easyDataLayer.setStyleHelper(container, 'height', "calc(100vh - 28px)");
+        easyDataLayer.setStyleHelper(container, 'width', "calc((100vh - 28px) * 0.6)");
+        if (sourceContainer) easyDataLayer.setStyleHelper(sourceContainer, 'border-radius', "8px");
+        const fadeDesktop = document.querySelector("#easy-video-commerce-nh-fade-desktop");
+        if (fadeDesktop) {
+          easyDataLayer.setStyleHelper(fadeDesktop, 'display', 'flex');
+          easyDataLayer.setStyleHelper(fadeDesktop, 'z-index', '1909999999');
+        }
       }
 
-
+      // Dispara evento de view apenas uma vez
       if (!easyDataLayer.analytics.viewTriggered) {
         easyDataLayer.sendAnalyticsEvent('view');
         easyDataLayer.analytics.viewTriggered = true;
@@ -191,51 +298,50 @@ var easyDataLayer = {
     }, 'handleMaximaze');
   },
 
-  handleMinimize: function (isMobile) {
+  handleMinimize: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const minDesktop = () => {
-        document.querySelector("#easy-video-commerce-nh-container").style.height = "130px";
-        document.querySelector("#easy-video-commerce-nh-container").style.width = "130px";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.height = "120px";
-        document.querySelector("#easy-video-commerce-nh-container #easy-video-commerce-nh").style.width = "120px";
-        document.querySelector("#easy-video-commerce-nh-container").style.transform = "translateX(0)";
-        document.querySelector("#easy-video-commerce-nh .easy-source-container").style.borderRadius = "100%";
-        document.querySelector("#easy-video-commerce-nh-fade-desktop").style.display = 'none';
-        document.querySelector("#easy-video-commerce-nh-fade-desktop").style.zIndex = '15000';
-      }
-      const minMobile = () => {
-        document.querySelector("#easy-video-commerce-nh").style.left = '14px';
-        document.querySelector("#easy-video-commerce-nh").style.bottom = '14px';
+      const container = document.querySelector("#easy-video-commerce-nh-container");
+      const easyNh = document.querySelector("#easy-video-commerce-nh");
+      const fadeDesktop = document.querySelector("#easy-video-commerce-nh-fade-desktop");
 
-        document.querySelector("#easy-video-commerce-nh-container").style.height = "110px";
-        document.querySelector("#easy-video-commerce-nh-container").style.width = "110px";
-        document.querySelector("#easy-video-commerce-nh").style.height = "100px";
-        document.querySelector("#easy-video-commerce-nh").style.width = "100px";
-        document.querySelector("#easy-video-commerce-nh .easy-source-container").style.borderRadius = "100%";
+      // Minimiza para desktop
+      const minDesktop = () => {
+        easyDataLayer.setStyleHelper(container, 'transform', "translateX(0)");
+        easyDataLayer.setStyleHelper(fadeDesktop, 'display', 'none');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'z-index', '15000');
+      };
+
+      // Minimiza para mobile
+      const minMobile = () => {
+        easyDataLayer.setStyleHelper(easyNh, 'left', '14px');
+        easyDataLayer.setStyleHelper(easyNh, 'bottom', '14px');
 
         easyDataLayer.removeDisableZoomPageEvent();
-      }
+      };
 
       easyDataLayer.handleControlMuteAndUnmute(true);
 
-      document.querySelector("#easy-video-commerce-nh-container").style.borderWidth = '3px';
-      document.querySelector("#easy-video-commerce-nh-container").classList.toggle("maximized");
-      document.querySelector("#easy-video-commerce-nh-container").style.zIndex = '16000';
+      easyDataLayer.setStyleHelper(container, 'border-width', '3px');
+      container.classList.toggle("maximized");
+      easyDataLayer.setStyleHelper(container, 'z-index', '16000');
 
-      document.querySelector("#easy-video-commerce-nh .progress-container").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .controls").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .header-controls").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .btn-like").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .btn-comments").style.display = "none";
-      document.querySelector("#easy-video-commerce-nh .btn-wpp").style.display = "none";
+      // Esconde elementos principais
+      [
+        ".header-title",
+        ".progress-container",
+        ".controls",
+        ".header-controls",
+        ".extra-control"
+      ].forEach(sel => {
+        const el = document.querySelector(`#easy-video-commerce-nh ${sel}`);
+        easyDataLayer.setStyleHelper(el, 'display', 'none');
+      });
 
-      const productImages = document.querySelectorAll('#easy-video-commerce-nh .product-showcase-image');
-      productImages.forEach(image => image.style.display = 'none');
+      // Set minimized size
+      easyDataLayer.setMinimizedContainerSize();
 
-      const showcase = document.querySelector('#easy-video-commerce-nh #featured-product-showcase');
-      if (showcase) showcase.style.display = 'none';
-
-      if (isMobile) {
+      // Aplica estilos de minimizado conforme device
+      if (easyDataLayer.uiData.isMobile) {
         minMobile();
       } else {
         minDesktop();
@@ -245,172 +351,140 @@ var easyDataLayer = {
     }, 'handleMinimize');
   },
 
-  handleContainerHover: function () {
-    easyDataLayer.utils.executeWithLogging(() => {
-      const container = document.querySelector("#easy-video-commerce-nh-container");
-      container.addEventListener('mouseenter', () => {
-        const maximized = container.classList.contains("maximized");
-        if (!maximized) {
-          easyDataLayer.setHelloMessage(null);
-        }
-      });
-    }, 'handleContainerHover');
-  },
-
   setHTML: function () {
     const handleControlLeft = () => easyDataLayer.checkCurrentMediaAndPlayNext(false);
-
     const handleControlRight = () => easyDataLayer.checkCurrentMediaAndPlayNext(true);
 
     fetch(`${easyDataLayer.config.embbedUrl}/nuvemHubEVCScope.html`)
       .then(response => response.text())
       .then(data => {
-        const isMobile = window.innerWidth < 768;
-        // Fade
-        var fadeDesktop = document.createElement('div');
-
+        // Fade overlay
+        const fadeDesktop = document.createElement('div');
         fadeDesktop.id = 'easy-video-commerce-nh-fade-desktop';
         fadeDesktop.className = 'easy-video-commerce-nh-fade-desktop';
-
-        fadeDesktop.style.display = 'none';
-        fadeDesktop.style.position = 'fixed';
-        fadeDesktop.style.top = '0';
-        fadeDesktop.style.left = '0';
-        fadeDesktop.style.width = '100%';
-        fadeDesktop.style.height = '100%';
-        fadeDesktop.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        fadeDesktop.style.zIndex = '15000';
-
+        easyDataLayer.setStyleHelper(fadeDesktop, 'display', 'none');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'position', 'fixed');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'top', '0');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'left', '0');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'width', '100%');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'height', '100%');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'background-color', 'rgba(0, 0, 0, 0.8)');
+        easyDataLayer.setStyleHelper(fadeDesktop, 'z-index', '15000');
         document.body.appendChild(fadeDesktop);
-        // Container
-        var container = document.createElement('div');
 
+        // Main container
+        const container = document.createElement('div');
         container.id = 'easy-video-commerce-nh-container';
         container.className = 'easy-video-commerce-nh-container';
-
-        container.style.display = 'none';
-        container.style.alignItems = 'center';
-        container.style.justifyContent = 'center';
-        container.style.width = isMobile ? '110px' : '130px';
-        container.style.height = isMobile ? '110px' : '130px';
-        container.style.position = 'fixed';
-        container.style.cursor = 'pointer';
-        container.style.zIndex = '16000';
-        container.style.border = '3px solid #000';
-        container.style.borderRadius = '100%';
-        container.style.boxSizing = 'border-box';
-        container.style.transition = 'top 0.1s';
+        easyDataLayer.setStyleHelper(container, 'display', 'none');
+        easyDataLayer.setStyleHelper(container, 'align-items', 'center');
+        easyDataLayer.setStyleHelper(container, 'justify-content', 'center');
+        easyDataLayer.setStyleHelper(container, 'position', 'fixed');
+        easyDataLayer.setStyleHelper(container, 'cursor', 'pointer');
+        easyDataLayer.setStyleHelper(container, 'z-index', '16000');
+        easyDataLayer.setStyleHelper(container, 'border', '3px solid #000');
+        easyDataLayer.setStyleHelper(container, 'border-radius', '100%');
+        easyDataLayer.setStyleHelper(container, 'box-sizing', 'border-box');
+        easyDataLayer.setStyleHelper(container, 'transition', 'top 0.1s');
 
         // Easy Container
-        var div = document.createElement('div');
-
+        const div = document.createElement('div');
         div.id = 'easy-video-commerce-nh';
         div.className = 'easy-video-commerce-nh';
-
-        div.style.display = 'flex';
-        div.style.width = isMobile ? '100px' : '120px';
-        div.style.height = isMobile ? '100px' : '120px';
-
+        easyDataLayer.setStyleHelper(div, 'display', 'flex');
         div.innerHTML = data;
         container.appendChild(div);
 
         document.body.appendChild(container);
 
-        let style = document.createElement('style');
+        // CSS global para o widget
+        const style = document.createElement('style');
         style.innerHTML = `
-          #easy-video-commerce-nh button {
-            outline: none;
-            border: 0;
-            margin: 0;
-            padding: 0;
-            cursor: pointer;
-            background-color: transparent;
-          }
-
-          #easy-video-commerce-nh button:focus {
-            opacity: 1;
-          }
-
-          #easy-video-commerce-nh,
-          #easy-video-commerce-nh button,
-          #easy-video-commerce-nh div,
-          #easy-video-commerce-nh a {
-            -webkit-tap-highlight-color: transparent;
-            outline: none;
-          }
-
-          #easy-video-commerce-nh button,
-          #easy-video-commerce-nh a,
-          #easy-video-commerce-nh p,
-          #easy-video-commerce-nh h1,
-          #easy-video-commerce-nh h2,
-          #easy-video-commerce-nh h3,
-          #easy-video-commerce-nh h4,
-          #easy-video-commerce-nh h5,
-          #easy-video-commerce-nh h6,
-          #easy-video-commerce-nh span,
-          #easy-video-commerce-nh div,
-          #easy-video-commerce-nh input,
-          #easy-video-commerce-nh textarea,
-          #easy-video-commerce-nh select,
-          #easy-video-commerce-nh option,
-          #easy-video-commerce-nh label {
-            font-family: sans-serif;
-            margin: 0;
-          }
-
-          #easy-video-commerce-nh button:hover, 
-          #easy-video-commerce-nh button:focus {
-            border: 0;
-            outline: none;
-          }
-
-          #easy-video-commerce-nh a:hover, 
-          #easy-video-commerce-nh a:focus {
-            border: 0;
-            outline: none;
-          }
-        `;
+        #easy-video-commerce-nh button,
+        #easy-video-commerce-nh button:focus,
+        #easy-video-commerce-nh button:hover,
+        #easy-video-commerce-nh a,
+        #easy-video-commerce-nh a:focus,
+        #easy-video-commerce-nh a:hover,
+        #easy-video-commerce-nh div,
+        #easy-video-commerce-nh span,
+        #easy-video-commerce-nh input,
+        #easy-video-commerce-nh textarea,
+        #easy-video-commerce-nh select,
+        #easy-video-commerce-nh option,
+        #easy-video-commerce-nh label,
+        #easy-video-commerce-nh p,
+        #easy-video-commerce-nh h1,
+        #easy-video-commerce-nh h2,
+        #easy-video-commerce-nh h3,
+        #easy-video-commerce-nh h4,
+        #easy-video-commerce-nh h5,
+        #easy-video-commerce-nh h6 {
+          font-family: sans-serif !important;
+          margin: 0 !important;
+          outline: none !important;
+          border: 0 !important;
+          padding: 0 !important;
+        }
+        #easy-video-commerce-nh button,
+        #easy-video-commerce-nh a {
+          cursor: pointer !important;
+          background: transparent !important;
+        }
+        #easy-video-commerce-nh,
+        #easy-video-commerce-nh button,
+        #easy-video-commerce-nh div,
+        #easy-video-commerce-nh a {
+          -webkit-tap-highlight-color: transparent !important;
+        }
+      `;
         document.head.appendChild(style);
 
-        document.querySelector("#easy-video-commerce-nh .easy-source-container").addEventListener("click", () => easyDataLayer.handleMaximaze(isMobile));
-        document.querySelector("#easy-video-commerce-nh .header-controls .btn-restart").addEventListener("click", () => easyDataLayer.restartCurrentMedia());
-        document.querySelector("#easy-video-commerce-nh .header-controls .btn-pause").addEventListener("click", () => easyDataLayer.handlePlayPauseMedia());
-        document.querySelector("#easy-video-commerce-nh .header-controls .btn-play").addEventListener("click", () => easyDataLayer.handlePlayPauseMedia());
-        document.querySelector("#easy-video-commerce-nh .header-controls .btn-close").addEventListener("click", () => easyDataLayer.handleMinimize(isMobile));
-        if (!isMobile) {
-          document.querySelector("#easy-video-commerce-nh-fade-desktop").addEventListener("click", () => easyDataLayer.handleMinimize(false));
+        // Adiciona listeners de controles
+        const qs = (sel) => document.querySelector(sel);
+        qs("#easy-video-commerce-nh .easy-source-container")?.addEventListener("click", easyDataLayer.handleMaximaze);
+        qs("#easy-video-commerce-nh .header-controls .btn-restart")?.addEventListener("click", easyDataLayer.restartCurrentMedia);
+        qs("#easy-video-commerce-nh .header-controls .btn-pause")?.addEventListener("click", easyDataLayer.handlePlayPauseMedia);
+        qs("#easy-video-commerce-nh .header-controls .btn-play")?.addEventListener("click", easyDataLayer.handlePlayPauseMedia);
+        qs("#easy-video-commerce-nh .header-controls .btn-close")?.addEventListener("click", easyDataLayer.handleMinimize);
+        if (!easyDataLayer.uiData.isMobile) {
+          qs("#easy-video-commerce-nh-fade-desktop")?.addEventListener("click", () => easyDataLayer.handleMinimize(false));
         }
-        document.querySelector("#easy-video-commerce-nh .controls .control-left").addEventListener("click", handleControlLeft);
-        document.querySelector("#easy-video-commerce-nh .controls .control-right").addEventListener("click", handleControlRight);
-        document.querySelector("#easy-video-commerce-nh .controls .control-center").addEventListener("click", easyDataLayer.handleControlMuteAndUnmute);
+        qs("#easy-video-commerce-nh .controls .control-left")?.addEventListener("click", handleControlLeft);
+        qs("#easy-video-commerce-nh .controls .control-right")?.addEventListener("click", handleControlRight);
+        qs("#easy-video-commerce-nh .controls .control-center")?.addEventListener("click", easyDataLayer.handleControlMuteAndUnmute);
 
-        document.querySelector("#easy-video-commerce-nh .extra-control .btn-like").addEventListener("click", easyDataLayer.handleLike);
-        document.querySelector("#easy-video-commerce-nh .extra-control .btn-comments").addEventListener("click", easyDataLayer.handleModalComments);
-        document.querySelector("#easy-video-commerce-nh #comments-container .overlay").addEventListener("click", easyDataLayer.handleModalComments);
-        document.querySelector("#easy-video-commerce-nh #comments-container .comments-btn-close").addEventListener("click", easyDataLayer.handleModalComments);
-        document.querySelector("#easy-video-commerce-nh #comments-container .submit-comment").addEventListener("click", easyDataLayer.handleComment);
+        qs("#easy-video-commerce-nh .extra-control .btn-like")?.addEventListener("click", easyDataLayer.handleLike);
+        qs("#easy-video-commerce-nh .extra-control .btn-comments")?.addEventListener("click", easyDataLayer.handleModalComments);
+        qs("#easy-video-commerce-nh #comments-container .overlay")?.addEventListener("click", easyDataLayer.handleModalComments);
+        qs("#easy-video-commerce-nh #comments-container .comments-btn-close")?.addEventListener("click", easyDataLayer.handleModalComments);
+        qs("#easy-video-commerce-nh #comments-container .submit-comment")?.addEventListener("click", easyDataLayer.handleComment);
+        qs("#easy-video-commerce-nh .extra-control .btn-share")?.addEventListener("click", easyDataLayer.handleShare);
 
-        const modalCommentsTitle = document.querySelector('#easy-video-commerce-nh #comments-container h2');
-        const modalCommentsTextarea = document.querySelector('#easy-video-commerce-nh #comments-container textarea');
-        const modalCommentsSubmit = document.querySelector('#easy-video-commerce-nh #comments-container .submit-comment');
-        if (modalCommentsTitle && modalCommentsTextarea && modalCommentsSubmit) {
-          if (easyDataLayer.config.lang === 'es') {
-            modalCommentsTitle.textContent = 'Comentarios';
-            modalCommentsTextarea.placeholder = 'Deja tu comentario para que podamos mejorar nuestro contenido y aclarar todas tus dudas. ¡Tu opinión es muy importante para nosotros!';
-            modalCommentsSubmit.textContent = 'Enviar';
-          } else if (easyDataLayer.config.lang === 'en') {
-            modalCommentsTitle.textContent = 'Comments';
-            modalCommentsTextarea.placeholder = 'Leave your comment so that we can improve our content and clarify all your doubts. Your opinion is very important to us!';
-            modalCommentsSubmit.textContent = 'Send';
-          } else {
-            modalCommentsTitle.textContent = 'Comentários';
-            modalCommentsTextarea.placeholder = 'Deixe seu comentário para que possamos aprimorar nosso conteúdo e esclarecer todas as suas dúvidas. Sua opinião é muito importante para nós!';
-            modalCommentsSubmit.textContent = 'Enviar';
+        qs("#easy-video-commerce-nh-container")?.addEventListener('mouseenter', () => {
+          const maximized = container.classList.contains("maximized");
+          if (!maximized) {
+            easyDataLayer.setHelloMessage(null);
           }
+        });
+
+        // Set initial size of minimized container
+        easyDataLayer.setMinimizedContainerSize();
+
+        // Tradução dinâmica dos comentários
+        const modalCommentsTitle = qs('#easy-video-commerce-nh #comments-container h2');
+        const modalCommentsInput = qs('#easy-video-commerce-nh #comments-container input');
+        const modalCommentsSubmit = qs('#easy-video-commerce-nh #comments-container .submit-comment');
+        if (modalCommentsTitle && modalCommentsInput && modalCommentsSubmit) {
+          modalCommentsTitle.textContent = easyDataLayer.i18n({ pt: 'Comentários', es: 'Comentarios', en: 'Comments' });
+          modalCommentsInput.placeholder = easyDataLayer.i18n({
+            pt: 'Deixe sua opinião ou dúvida! Seu feedback nos ajuda a melhorar cada vez mais. 😊',
+            es: '¡Deja tu opinión o duda! Tu feedback nos ayuda a mejorar cada vez más. 😊',
+            en: 'Leave your opinion or question! Your feedback helps us improve more and more. 😊'
+          });
+          modalCommentsSubmit.textContent = easyDataLayer.i18n({ pt: 'Enviar', es: 'Enviar', en: 'Send' });
         }
 
-        easyDataLayer.handleContainerHover();
         easyDataLayer.sendAnalyticsEvent('loaded');
       })
       .catch((error) => {
@@ -420,28 +494,27 @@ var easyDataLayer = {
 
   handleLike: function () {
     easyDataLayer.utils.executeWithLogging(() => {
+      const likeBtn = document.querySelector("#easy-video-commerce-nh .extra-control .btn-like");
+      const likeSvgD = likeBtn?.querySelector(".like-icon-disabled");
+      const likeSvgE = likeBtn?.querySelector(".like-icon-enabled");
+
+      if (!likeBtn || !likeSvgD || !likeSvgE) return;
+      if (likeSvgD.style.display === "none") return;
       easyDataLayer.sendAnalyticsEvent('like');
 
-      // animation
-      const likeSvgD = document.querySelector("#easy-video-commerce-nh .extra-control .btn-like .like-icon-disabled");
-      const likeSvgE = document.querySelector("#easy-video-commerce-nh .extra-control .btn-like .like-icon-enabled");
-      const likeBtn = document.querySelector("#easy-video-commerce-nh .extra-control .btn-like");
+      // Animação de feedback visual usando setStyleHelper
+      easyDataLayer.setStyleHelper(likeSvgD, 'display', 'none');
+      easyDataLayer.setStyleHelper(likeSvgE, 'display', 'flex');
+      easyDataLayer.setStyleHelper(likeBtn, 'pointer-events', 'none');
+      easyDataLayer.setStyleHelper(likeBtn, 'transition', 'transform 0.3s');
+      easyDataLayer.setStyleHelper(likeBtn, 'transform', 'scale(1.4)');
 
-      if (likeSvgD && likeSvgE && likeBtn) {
-        if (likeSvgD.style.display === "none") return;
+      setTimeout(() => {
+        easyDataLayer.setStyleHelper(likeBtn, 'transform', 'scale(1)');
+        easyDataLayer.setStyleHelper(likeBtn, 'pointer-events', 'all');
+      }, 350);
 
-        likeSvgD.style.display = "none";
-        likeSvgE.style.display = "flex";
-        likeBtn.style.pointerEvents = "none";
-        likeBtn.style.transform = "scale(1.4)";
-        setTimeout(() => {
-          likeBtn.style.transform = "scale(1)";
-        }, 300);
-      }
-
-      // simulate purchase event
-      const debug = sessionStorage.getItem('nuvemhubdebug') === 'true';
-      if (debug) {
+      if (easyDataLayer.config.debug) {
         easyDataLayer.sendAnalyticsEvent('purchase', { value: 99.9, currency: 'BRL' });
       }
     }, 'handleLike');
@@ -449,9 +522,11 @@ var easyDataLayer = {
 
   handleComment: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const comment = document.querySelector("#easy-video-commerce-nh #comments-container textarea");
+      const comment = document.querySelector("#easy-video-commerce-nh #comments-container input");
       const btnCommentSubmit = document.querySelector("#easy-video-commerce-nh #comments-container .submit-comment");
       const btnCommentClose = document.querySelector("#easy-video-commerce-nh #comments-container .comments-btn-close");
+
+      if (!comment || !btnCommentSubmit || !btnCommentClose || !comment?.value) return;
 
       if (comment?.value) {
         easyDataLayer.sendAnalyticsEvent('comment', {
@@ -462,13 +537,18 @@ var easyDataLayer = {
       if (comment && btnCommentSubmit) {
         comment.disabled = true;
 
-        // Success message
-        btnCommentSubmit.style.pointerEvents = "none";
-        btnCommentClose.style.pointerEvents = "none";
-        btnCommentSubmit.textContent = "Enviado!";
-        btnCommentSubmit.style.backgroundColor = "#38b000";
-        btnCommentSubmit.style.color = "white";
-        btnCommentSubmit.transition = "background-color 0.5s";
+        // Success message + animação simples usando setStyleHelper
+        easyDataLayer.setStyleHelper(btnCommentSubmit, 'pointer-events', 'none');
+        easyDataLayer.setStyleHelper(btnCommentClose, 'pointer-events', 'none');
+        btnCommentSubmit.textContent = easyDataLayer.i18n({ pt: 'Enviado!', es: '¡Enviado!', en: 'Sent!' });
+        easyDataLayer.setStyleHelper(btnCommentSubmit, 'color', '#2dc653');
+        easyDataLayer.setStyleHelper(btnCommentSubmit, 'transition', 'all 0.4s');
+        easyDataLayer.setStyleHelper(btnCommentSubmit, 'transform', 'scale(1.12)');
+
+        // Remove animação após um tempo
+        setTimeout(() => {
+          easyDataLayer.setStyleHelper(btnCommentSubmit, 'transform', 'scale(1)');
+        }, 400);
       }
 
       setTimeout(() => {
@@ -478,43 +558,99 @@ var easyDataLayer = {
           comment.disabled = false;
           comment.value = '';
 
-          btnCommentSubmit.style.pointerEvents = "all";
-          btnCommentClose.style.pointerEvents = "all";
-          btnCommentSubmit.textContent = "Enviar";
-          btnCommentSubmit.style.backgroundColor = "#edf2f7";
-          btnCommentSubmit.style.color = "black";
+          easyDataLayer.setStyleHelper(btnCommentSubmit, 'pointer-events', 'all');
+          easyDataLayer.setStyleHelper(btnCommentClose, 'pointer-events', 'all');
+          btnCommentSubmit.textContent = easyDataLayer.i18n({ pt: 'Enviar', es: 'Enviar', en: 'Send' });
+          easyDataLayer.setStyleHelper(btnCommentSubmit, 'color', '#303030');
+          easyDataLayer.setStyleHelper(btnCommentSubmit, 'transform', 'scale(1)');
         }
-      }, 1500);
+      }, 1250);
     }, 'handleComment');
   },
 
-  setWppEvent: function () {
+  setupWppEvent: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      if (easyDataLayer.config.whatsapp) {
-        document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp").addEventListener("click", easyDataLayer.handleWppContact);
+      const btnWpp = document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp");
+      if (!btnWpp) return;
+
+      // Remove event listener anterior para evitar múltiplos binds
+      btnWpp.replaceWith(btnWpp.cloneNode(true));
+      const newBtnWpp = document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp");
+
+      if (easyDataLayer.store.whatsapp) {
+        easyDataLayer.setStyleHelper(newBtnWpp, 'display', 'flex');
+        newBtnWpp.addEventListener("click", function () {
+          easyDataLayer.utils.executeWithLogging(() => {
+            easyDataLayer.sendAnalyticsEvent('wpp');
+            const helloWppText = easyDataLayer.i18n({
+              pt: `Olá! Vi um vídeo na loja e quero saber mais. 😊\n\n${window.location.href}`,
+              es: `¡Hola! Vi un video en la tienda y quiero saber más. 😊\n\n${window.location.href}`,
+              en: `Hi! I saw a video in the store and want to know more. 😊\n\n${window.location.href}`
+            });
+            window.open(
+              `https://wa.me/${easyDataLayer.store.whatsapp}?text=${encodeURIComponent(helloWppText)}`,
+              '_blank'
+            );
+          }, 'handleWppContact');
+        });
       } else {
-        document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp").style.display = "none";
+        easyDataLayer.setStyleHelper(newBtnWpp, 'display', 'none');
       }
-    }, 'setWppEvent');
+    }, 'setupWppEvent');
   },
 
-  handleWppContact: function () {
+  handleShare: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      easyDataLayer.sendAnalyticsEvent('wpp');
+      // Web Share API
+      if (navigator?.share) {
+        navigator.share({
+          title: document.title,
+          text: easyDataLayer.i18n({
+            pt: 'Olha esse vídeo interessante que encontrei!',
+            es: '¡Mira este video interesante que encontré!',
+            en: 'Check out this interesting video I found!'
+          }),
+          url: window.location.href
+        }).then(() => {
+          easyDataLayer.sendAnalyticsEvent('share');
+        }).catch((error) => {
+          console.error('[NuvemHub] Easy Video Commerce: handleShare Web Share API Error:', error);
+        });
+      } else if (navigator?.clipboard && window?.isSecureContext) {
+        // Modern clipboard API
+        navigator.clipboard.writeText(window.location.href)
+          .then(() => {
+            easyDataLayer.setAlertShow(true, easyDataLayer.i18n({
+              pt: 'Link copiado!',
+              es: '¡Enlace copiado!',
+              en: 'Link copied!'
+            }), true, 1200);
 
-      let helloWppText = `Olá, vi um vídeo na loja e gostaria de mais informações!\n\n${window.location.href}`;
-      if (easyDataLayer.config.lang === 'es') {
-        helloWppText = `Hola, vi un video en la tienda y me gustaría obtener más información!\n\n${window.location.href}`;
-      } else if (easyDataLayer.config.lang === 'en') {
-        helloWppText = `Hello, I saw a video in the store and would like more information!\n\n${window.location.href}`;
+            easyDataLayer.sendAnalyticsEvent('share');
+          })
+          .catch((err) => {
+            console.error('[NuvemHub] Easy Video Commerce: handleShare Error:', err);
+          });
       } else {
-        helloWppText = `Olá, vi um vídeo na loja e gostaria de mais informações!\n\n${window.location.href}`;
+        // Fallback for older browsers (deprecated, but as last resort)
+        const dummy = document.createElement('textarea');
+        dummy.value = window.location.href;
+        document.body.appendChild(dummy);
+        dummy.select();
+        try {
+          document.execCommand('copy');
+          easyDataLayer.setAlertShow(true, easyDataLayer.i18n({
+            pt: 'Link copiado!',
+            es: '¡Enlace copiado!',
+            en: 'Link copied!'
+          }), true, 1200);
+          easyDataLayer.sendAnalyticsEvent('share');
+        } catch (err) {
+          console.error('[NuvemHub] Easy Video Commerce: handleShare Fallback Error:', err);
+        }
+        document.body.removeChild(dummy);
       }
-      window.open(
-        `https://wa.me/${easyDataLayer.config.whatsapp}?text=${encodeURIComponent(helloWppText)}`,
-        '_blank'
-      );
-    }, 'handleWppContact');
+    }, 'handleShare');
   },
 
   checkCurrentVideoMuted: function () {
@@ -530,46 +666,72 @@ var easyDataLayer = {
       const videos = document.querySelectorAll('#easy-video-commerce-nh video');
       const video = videos[easyDataLayer.videoData.videoIndex];
 
-      if (video) {
-        if (forceMute !== null && (forceMute === true || forceMute === false)) {
-          video.muted = forceMute;
-        } else {
-          video.muted = !video.muted;
-        }
+      if (!video) return;
 
-        const unmuteIcon = document.querySelector("#easy-video-commerce-nh .controls .control-center .unmute-icon");
-        const muteIcon = document.querySelector("#easy-video-commerce-nh .controls .control-center .mute-icon");
-        const iconContainer = document.querySelector("#easy-video-commerce-nh .controls .control-center .control-center-icon-container");
-
-        unmuteIcon.style.display = video.muted ? "none" : "flex";
-        muteIcon.style.display = video.muted ? "flex" : "none";
-
-        iconContainer.style.display = "flex";
-        if (easyDataLayer.videoData.muteTimeInstance) clearTimeout(easyDataLayer.videoData.muteTimeInstance);
-        easyDataLayer.videoData.muteTimeInstance = setTimeout(() => {
-          iconContainer.style.display = "none";
-        }, 1500);
+      // Alterna ou força mute
+      if (forceMute !== null && (forceMute === true || forceMute === false)) {
+        video.muted = forceMute;
+      } else {
+        video.muted = !video.muted;
       }
+
+      const unmuteIcon = document.querySelector("#easy-video-commerce-nh .controls .control-center .unmute-icon");
+      const muteIcon = document.querySelector("#easy-video-commerce-nh .controls .control-center .mute-icon");
+      const iconContainer = document.querySelector("#easy-video-commerce-nh .controls .control-center .control-center-icon-container");
+
+      // Usa setStyleHelper para consistência
+      easyDataLayer.setStyleHelper(unmuteIcon, 'display', video.muted ? 'none' : 'flex');
+      easyDataLayer.setStyleHelper(muteIcon, 'display', video.muted ? 'flex' : 'none');
+      easyDataLayer.setStyleHelper(iconContainer, 'display', 'flex');
+
+      if (easyDataLayer.videoData.muteTimeInstance) clearTimeout(easyDataLayer.videoData.muteTimeInstance);
+      easyDataLayer.videoData.muteTimeInstance = setTimeout(() => {
+        easyDataLayer.setStyleHelper(iconContainer, 'display', 'none');
+      }, 1500);
     }, 'handleControlMuteAndUnmute');
   },
 
   handleModalComments: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const container = document.querySelector('#easy-video-commerce-nh #comments-container')
-      const wrapper = document.querySelector('#easy-video-commerce-nh #comments-container .wrapper')
+      const container = document.querySelector('#easy-video-commerce-nh #comments-container');
+      const wrapper = document.querySelector('#easy-video-commerce-nh #comments-container .wrapper');
 
-      if (wrapper.style.bottom === '0px' || wrapper.style.bottom === '0%' || wrapper.style.bottom === '0') {
-        wrapper.style.bottom = '-100%';
-        container.style.display = 'none';
+      if (!container || !wrapper) return;
+
+      if (easyDataLayer.uiData.modalCommentsTimeInstance) {
+        clearTimeout(easyDataLayer.uiData.modalCommentsTimeInstance);
+      }
+
+      const isOpen =
+        wrapper.style.bottom === '0px' ||
+        wrapper.style.bottom === '0%' ||
+        wrapper.style.bottom === '0';
+
+      if (isOpen) {
+        easyDataLayer.setStyleHelper(wrapper, 'bottom', '-100%');
+        easyDataLayer.setStyleHelper(container, 'transition', 'opacity 0.25s');
+        easyDataLayer.setStyleHelper(container, 'opacity', '0');
+        easyDataLayer.uiData.modalCommentsTimeInstance = setTimeout(() => {
+          easyDataLayer.setStyleHelper(container, 'display', 'none');
+          easyDataLayer.setStyleHelper(container, 'opacity', '1');
+        }, 250);
       } else {
-        container.style.display = 'flex';
-        wrapper.style.bottom = '0';
+        easyDataLayer.setStyleHelper(container, 'display', 'flex');
+        easyDataLayer.setStyleHelper(container, 'opacity', '0');
+        easyDataLayer.uiData.modalCommentsTimeInstance = setTimeout(() => {
+          easyDataLayer.setStyleHelper(wrapper, 'bottom', '0');
+          easyDataLayer.setStyleHelper(container, 'transition', 'opacity 0.25s');
+          easyDataLayer.setStyleHelper(container, 'opacity', '1');
+        }, 10);
       }
     }, 'handleModalComments');
   },
 
   checkCurrentMediaAndPlayNext: function (forward) {
     easyDataLayer.utils.executeWithLogging(() => {
+      const DELAY_BEFORE_PLAY = 150;
+      const DELAY_DEBOUNCE = 300;
+
       easyDataLayer.videoData.playNextFireCalls += (forward ? 1 : -1);
 
       if (easyDataLayer.videoData.playNextFireTimeInstance) {
@@ -579,10 +741,17 @@ var easyDataLayer = {
       easyDataLayer.videoData.playNextFireTimeInstance = setTimeout(() => {
         const videos = document.querySelectorAll('#easy-video-commerce-nh video');
         const { videoIndex, playNextFireCalls, allSources } = easyDataLayer.videoData;
-        const calculatedIndex = videoIndex + playNextFireCalls;
         const lastIndex = allSources.length - 1;
 
-        const nextIndex = calculatedIndex >= allSources.length ? lastIndex : calculatedIndex < 0 ? 0 : calculatedIndex;
+        // Utilitário para calcular o próximo índice válido
+        const getNextIndex = (current, calls, max) => {
+          const idx = current + calls;
+          if (idx >= max) return max - 1;
+          if (idx < 0) return 0;
+          return idx;
+        };
+
+        const nextIndex = getNextIndex(videoIndex, easyDataLayer.videoData.playNextFireCalls, allSources.length);
 
         easyDataLayer.videoData.playNextFireCalls = 0;
 
@@ -593,7 +762,7 @@ var easyDataLayer = {
 
         const nextVid = videos?.[nextIndex];
         const oldVideo = videos?.[videoIndex];
-        oldVideo.pause();
+        if (oldVideo) oldVideo.pause();
         const currentVideoMuted = easyDataLayer.checkCurrentVideoMuted();
 
         // check if video not exists, then preload
@@ -621,21 +790,24 @@ var easyDataLayer = {
         }
 
         // show and play
-        nextVid.style.display = 'flex';
-        easyDataLayer.resetVideo(oldVideo);
-        easyDataLayer.setProductsToShow();
+        easyDataLayer.setStyleHelper(nextVid, 'display', 'flex');
+        if (oldVideo) easyDataLayer.resetVideo(oldVideo);
+
         if (mustSetProgressBarAction) easyDataLayer.setProgressBarAction(forward);
+
         setTimeout(() => {
-          easyDataLayer.setLoadingVideo(false);
+          easyDataLayer.setAlertShow(false);
           nextVid.play();
           if (!currentVideoMuted) easyDataLayer.handleControlMuteAndUnmute(false);
-        }, 150);
-      }, 300);
+        }, DELAY_BEFORE_PLAY);
+      }, DELAY_DEBOUNCE);
     }, 'checkCurrentMediaAndPlayNext');
   },
 
   resetVideo: function (video) {
     easyDataLayer.utils.executeWithLogging(() => {
+      if (!video) return;
+
       video.style.display = 'none';
       video.currentTime = 0;
       video.pause();
@@ -646,21 +818,24 @@ var easyDataLayer = {
   observeUrlChange: function () {
     easyDataLayer.utils.executeWithLogging(() => {
       let oldHref = document.location.pathname;
-      const body = document.querySelector("body");
+      const body = document.body;
+
+      // Helper para remover container e fade
+      const removeEasyVCElements = () => {
+        const container = document.getElementById('easy-video-commerce-nh-container');
+        const fadeDesktop = document.getElementById('easy-video-commerce-nh-fade-desktop');
+        if (container) container.remove();
+        if (fadeDesktop) fadeDesktop.remove();
+      };
 
       const observer = new MutationObserver(() => {
         if (oldHref !== document.location.pathname) {
           oldHref = document.location.pathname;
-
-          const container = document.getElementById('easy-video-commerce-nh-container');
-          const fadeDesktop = document.getElementById('easy-video-commerce-nh-fade-desktop');
-          if (container && fadeDesktop) {
-            console.log("[NuvemHub] Easy Video Commerce: observeUrlChange");
-            container.parentNode.removeChild(container);
-            fadeDesktop.parentNode.removeChild(fadeDesktop);
-          }
+          removeEasyVCElements();
+          console.log("[NuvemHub] Easy Video Commerce: observeUrlChange - elements removed");
         }
       });
+
       observer.observe(body, { childList: true, subtree: true });
     }, 'observeUrlChange');
   },
@@ -698,7 +873,7 @@ var easyDataLayer = {
       const lowercasePath = window.location.pathname.toLowerCase();
       const query = `filter=${encodeURIComponent(lowercasePath)}`;
 
-      fetch(`${easyDataLayer.config.apiUrl}/campaign/list/display/${easyDataLayer.config.storeId}?${query}`)
+      fetch(`${easyDataLayer.config.apiUrl}/campaign/list/display/${easyDataLayer.store.storeId}?${query}`)
         .then(function (result) {
           if (!result.ok) {
             // 404, 500, etc
@@ -731,95 +906,153 @@ var easyDataLayer = {
       const enableEasyContainer = (value) => {
         const container = document.querySelector("#easy-video-commerce-nh-container");
         const fade = document.querySelector("#easy-video-commerce-nh-fade-desktop");
-        if (container) {
-          container.style.display = value;
+        easyDataLayer.setStyleHelper(container, 'display', value);
+
+        const isMaximized = container.classList.contains("maximized");
+        if (fade && isMaximized) {
+          easyDataLayer.setStyleHelper(fade, 'display', value);
         }
-        if (fade && value === 'none') {
-          fade.style.display = value;
-        }
-      }
+      };
 
       const videos = document.querySelectorAll('#easy-video-commerce-nh video');
       const video = videos[easyDataLayer.videoData.videoIndex];
+      if (!video) return;
+
+      // Remove listeners antigos se já adicionados
+      if (video._easyvcListeners) {
+        video.removeEventListener('loadeddata', video._easyvcListeners.loadeddata);
+        video.removeEventListener('error', video._easyvcListeners.error);
+        video.removeEventListener('ended', video._easyvcListeners.ended);
+      }
+
       easyDataLayer.videoData.eventListenerAdded[easyDataLayer.videoData.videoIndex] = true;
-      easyDataLayer.setLoadingVideo(true);
+      easyDataLayer.setAlertShow(true);
       video.muted = true;
 
-      video.addEventListener('loadeddata', () => {
+      // Handlers nomeados para fácil remoção
+      const onLoadedData = () => {
         console.log("[NuvemHub] Easy Video Commerce: video loaded");
-
-        easyDataLayer.setLoadingVideo(false);
+        easyDataLayer.setAlertShow(false);
         enableEasyContainer('flex');
         easyDataLayer.setHTMLProgressBars();
         easyDataLayer.setProgressBarAction(true);
-        easyDataLayer.setProductsToShow();
         easyDataLayer.setResponsiveStyle();
         video.play();
-      });
+      };
 
-      video.addEventListener('error', () => {
+      const onError = () => {
         console.log("[NuvemHub] Easy Video Commerce: video error, trying again...");
         if (!easyDataLayer.analytics.errorTriggered) {
           easyDataLayer.sendAnalyticsEvent('loaderror');
-
           easyDataLayer.analytics.errorTriggered = true;
-
           enableEasyContainer('none');
-          video.src = easyDataLayer.videoData.allSources[easyDataLayer.videoData.videoIndex];
-          video.load();
-        }
-      });
 
-      video.addEventListener('ended', () => {
+          video.src = '';
+          setTimeout(() => {
+            video.src = easyDataLayer.videoData.allSources[easyDataLayer.videoData.videoIndex];
+            video.load();
+          }, 50);
+        }
+      };
+
+      const onEnded = () => {
         console.log("[NuvemHub] Easy Video Commerce: video ended");
         const maximized = document.querySelector("#easy-video-commerce-nh-container").classList.contains("maximized");
         if (maximized) {
           easyDataLayer.handleEndedMedia();
         } else {
-          easyDataLayer.setLoadingVideo(false);
+          easyDataLayer.setAlertShow(false);
           video.currentTime = 0;
           video.muted = true;
           video.play();
         }
-      });
+      };
+
+      // Salva referência para remoção futura
+      video._easyvcListeners = {
+        loadeddata: onLoadedData,
+        error: onError,
+        ended: onEnded
+      };
+
+      video.addEventListener('loadeddata', onLoadedData);
+      video.addEventListener('error', onError);
+      video.addEventListener('ended', onEnded);
 
       video.load();
     }, 'setVideoEventListeners');
   },
 
-  setLoadingVideo: function (show) {
+  setAlertShow: function (show, message, autoClose = false, timeout = 1500) {
     easyDataLayer.utils.executeWithLogging(() => {
-      const loading = document.querySelector('#easy-video-commerce-nh #loading');
-      if (show) {
-        loading.style.display = 'flex';
-      } else {
-        loading.style.display = 'none';
+      const alert = document.querySelector('#easy-video-commerce-nh #alert-message');
+      const alertText = document.querySelector('#easy-video-commerce-nh #alert-message span');
+
+      if (!alert || !alertText) return;
+
+      // Helper para limpar e resetar o timeout
+      const clearAlertTimeout = () => {
+        if (easyDataLayer.uiData.alertMessageTimeInstance) {
+          clearTimeout(easyDataLayer.uiData.alertMessageTimeInstance);
+          easyDataLayer.uiData.alertMessageTimeInstance = null;
+        }
+      };
+
+      clearAlertTimeout();
+
+      // Adiciona listener de click apenas uma vez
+      if (!easyDataLayer.uiData.hasAlertMessageEventListener) {
+        alert.addEventListener('click', () => {
+          easyDataLayer.setStyleHelper(alert, 'display', 'none');
+          alertText.textContent = 'Loading...';
+          clearAlertTimeout();
+        });
+        easyDataLayer.uiData.hasAlertMessageEventListener = true;
       }
-    }, 'setLoadingVideo');
+
+      if (show) {
+        easyDataLayer.setStyleHelper(alert, 'display', 'flex');
+        alertText.textContent = message || 'Loading...';
+      } else {
+        easyDataLayer.setStyleHelper(alert, 'display', 'none');
+        alertText.textContent = 'Loading...';
+      }
+
+      if (autoClose && show) {
+        easyDataLayer.uiData.alertMessageTimeInstance = setTimeout(() => {
+          easyDataLayer.setAlertShow(false);
+        }, timeout);
+      }
+    }, 'setAlertShow');
   },
 
   setHTMLProgressBars: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      if (document.querySelector('#easy-video-commerce-nh .progress-bar-item')) return;
+      const progressContainer = document.querySelector('#easy-video-commerce-nh .progress-container');
+      if (!progressContainer) return;
+
+      // Limpa barras antigas antes de criar novas (evita duplicidade)
+      progressContainer.innerHTML = '';
 
       easyDataLayer.videoData.allSources.forEach((_, index) => {
         const progressBar = document.createElement('div');
         progressBar.classList.add('progress-bar-item');
         progressBar.id = `progress-bar-${index + 1}`;
 
-        progressBar.style.height = '4px';
-        progressBar.style.width = '100%';
-        progressBar.style.backgroundColor = 'rgba(255, 255, 255, .35)';
-        progressBar.style.borderRadius = '2px';
+        easyDataLayer.setStyleHelper(progressBar, 'height', '4px');
+        easyDataLayer.setStyleHelper(progressBar, 'width', '100%');
+        easyDataLayer.setStyleHelper(progressBar, 'background-color', 'rgba(255, 255, 255, .35)');
+        easyDataLayer.setStyleHelper(progressBar, 'border-radius', '6px');
 
         const progress = document.createElement('div');
-        progress.style.height = '100%';
-        progress.style.backgroundColor = 'rgb(255, 255, 255)';
-        progress.style.transition = 'bottom 1s';
-        progress.style.width = '0%';
+        easyDataLayer.setStyleHelper(progress, 'height', '100%');
+        easyDataLayer.setStyleHelper(progress, 'background-color', 'rgb(255, 255, 255)');
+        easyDataLayer.setStyleHelper(progress, 'transition', 'width 0.35s ease');
+        easyDataLayer.setStyleHelper(progress, 'width', '0%');
+        easyDataLayer.setStyleHelper(progress, 'border-radius', '6px');
 
         progressBar.appendChild(progress);
-        document.querySelector('#easy-video-commerce-nh .progress-container').appendChild(progressBar);
+        progressContainer.appendChild(progressBar);
       });
     }, 'setHTMLProgressBars');
   },
@@ -828,30 +1061,31 @@ var easyDataLayer = {
     easyDataLayer.utils.executeWithLogging(() => {
       const addVideoEventListener = (video, event, handler) => {
         video.addEventListener(event, handler);
-
         return function removeEventListener() {
           video.removeEventListener(event, handler);
         };
-      }
+      };
 
       const allBars = document.querySelectorAll('#easy-video-commerce-nh .progress-bar-item > div');
+      const { videoIndex, allSources } = easyDataLayer.videoData;
 
-      for (let i = 0; i < easyDataLayer.videoData.videoIndex; i++) {
-        const bar = allBars[i];
-        bar.style.width = '100%';
+      // Atualiza barras anteriores e posteriores
+      for (let i = 0; i < videoIndex; i++) {
+        easyDataLayer.setStyleHelper(allBars[i], 'width', '100%');
+      }
+      for (let i = videoIndex + 1; i < allSources.length; i++) {
+        easyDataLayer.setStyleHelper(allBars[i], 'width', '0%');
       }
 
-      for (let i = (easyDataLayer.videoData.videoIndex + 1); i < easyDataLayer.videoData.allSources.length; i++) {
-        const bar = allBars[i];
-        bar.style.width = '0%';
-      }
+      // Barra do vídeo atual
+      const bar = document.querySelector(`#progress-bar-${videoIndex + 1} > div`);
+      easyDataLayer.setStyleHelper(bar, 'display', 'flex');
 
-      const bar = document.querySelector(`#progress-bar-${easyDataLayer.videoData.videoIndex + 1} > div`);
-      bar.style.display = 'flex';
       const videos = document.querySelectorAll('#easy-video-commerce-nh video');
-      const video = videos[easyDataLayer.videoData.videoIndex];
-      const nextVideo = videos?.[easyDataLayer.videoData.videoIndex + (forward ? 1 : -1)];
+      const video = videos[videoIndex];
+      const nextVideo = videos?.[videoIndex + (forward ? 1 : -1)];
 
+      // Remove listener anterior, se houver
       if (easyDataLayer.videoData.removeEventListenerProgressBarAction) {
         easyDataLayer.videoData.removeEventListenerProgressBarAction();
       }
@@ -859,8 +1093,9 @@ var easyDataLayer = {
       easyDataLayer.videoData.preloadStarted = false;
       easyDataLayer.videoData.removeEventListenerProgressBarAction = addVideoEventListener(video, 'timeupdate', () => {
         const percent = (video.currentTime / video.duration) * 100;
-        bar.style.width = `${percent}%`;
+        easyDataLayer.setStyleHelper(bar, 'width', `${percent}%`);
 
+        // Preload do próximo vídeo se passou de 60%
         if (video.currentTime / video.duration > 0.60 && !easyDataLayer.videoData.preloadStarted) {
           if (!nextVideo) easyDataLayer.handlePreLoadingPlaybackMedia();
           easyDataLayer.videoData.preloadStarted = true;
@@ -869,170 +1104,30 @@ var easyDataLayer = {
     }, 'setProgressBarAction');
   },
 
-  setProductsToShow: function () {
-    easyDataLayer.utils.executeWithLogging(() => {
-      const isMobile = window.innerWidth < 768;
-
-      // Remove
-      const productImages = document.querySelectorAll('#easy-video-commerce-nh .product-showcase-image');
-      if (Array.from(productImages).length > 0) productImages.forEach(image => image.remove());
-
-      const fprod = document.querySelector('#easy-video-commerce-nh #featured-product-showcase');
-      if (fprod) fprod.remove();
-
-      // Add
-      const products = easyDataLayer.videoData.allVideosAttachedData[easyDataLayer.videoData.videoIndex]?.products;
-      const maximized = document.querySelector("#easy-video-commerce-nh-container").classList.contains("maximized");
-      if (products) {
-        // Featured product
-        const featuredProduct = products.find(product => product.isFeatured);
-        if (featuredProduct) {
-          const easyContainer = document.querySelector('#easy-video-commerce-nh');
-
-          const container = document.createElement('button');
-          container.id = 'featured-product-showcase';
-          container.onclick = () => {
-            if (easyDataLayer.config.productId !== featuredProduct.id) {
-              window.open(featuredProduct.link, '_self');
-            } else {
-              const isMobile = window.innerWidth < 768;
-              easyDataLayer.handleMinimize(isMobile);
-            }
-          };
-
-          container.style.position = 'absolute';
-          container.style.bottom = isMobile ? '3vh' : '2vh';
-          container.style.left = '14px';
-          container.style.width = isMobile ? '80vw' : '50vh';
-          container.style.height = isMobile ? '20vw' : '80px';
-          container.style.boxShadow = '4px 4px 8px rgba(0, 0, 0, 0.2)';
-          container.style.display = maximized ? 'flex' : 'none';
-          container.style.borderRadius = '8px';
-
-          const image = document.createElement('img');
-          image.src = featuredProduct?.imageSrc;
-          image.style.width = isMobile ? '20vw' : '80px';
-          image.style.height = isMobile ? '20vw' : '80px';
-          image.style.objectFit = 'cover';
-          image.style.borderTopLeftRadius = '8px';
-          image.style.borderBottomLeftRadius = '8px';
-          image.style.backgroundColor = '#fff';
-          container.appendChild(image);
-
-          const flex = document.createElement('div');
-          flex.style.display = 'flex';
-          flex.style.flexDirection = 'column';
-          flex.style.justifyContent = 'center';
-          flex.style.backgroundColor = 'rgba(108, 117, 125, 0.5)';
-          flex.style.width = isMobile ? 'calc(100% - 20vw)' : 'calc(100% - 80px)';
-          flex.style.height = '100%';
-          flex.style.paddingLeft = '16px';
-          flex.style.paddingRight = '16px';
-          flex.style.borderTopRightRadius = '8px';
-          flex.style.borderBottomRightRadius = '8px';
-          container.appendChild(flex);
-
-          // Remove if image not found
-          image.onerror = function () {
-            image.remove();
-            flex.style.width = '100%';
-          };
-
-          const heading = document.createElement('h2');
-          heading.textContent = featuredProduct.name;
-          heading.style.color = 'white';
-          heading.style.fontSize = isMobile ? '4vw' : '16px';
-          heading.style.whiteSpace = 'nowrap';
-          heading.style.overflow = 'hidden';
-          heading.style.textOverflow = 'ellipsis';
-          heading.style.fontWeight = 'bold';
-          heading.style.textAlign = 'left';
-          flex.appendChild(heading);
-
-          const text = document.createElement('p');
-          text.textContent = featuredProduct.price;
-          text.style.color = 'white';
-          text.style.fontSize = isMobile ? '4vw' : '16px';
-          text.style.whiteSpace = 'nowrap';
-          text.style.overflow = 'hidden';
-          text.style.textOverflow = 'ellipsis';
-          text.style.textAlign = 'left';
-          flex.appendChild(text);
-
-          easyContainer.appendChild(container);
-        }
-
-        let indexProduct = 0;
-        products.forEach((product) => {
-          if (product.isFeatured) return;
-
-          const container = document.querySelector('#easy-video-commerce-nh');
-
-          const productImageBtn = document.createElement('button');
-          productImageBtn.classList.add('product-showcase-image');
-          productImageBtn.classList.add(`image-${indexProduct + 1}`);
-          productImageBtn.onclick = () => {
-            if (easyDataLayer.config.productId !== product.id) {
-              window.open(product.link, '_self');
-            } else {
-              const isMobile = window.innerWidth < 768;
-              easyDataLayer.handleMinimize(isMobile);
-            }
-          };
-
-          productImageBtn.style.display = maximized ? 'flex' : 'none';
-          productImageBtn.style.width = isMobile ? '20vw' : '80px';
-          productImageBtn.style.height = isMobile ? '20vw' : '80px';
-          productImageBtn.style.position = 'absolute';
-          productImageBtn.style.left = '14px';
-          productImageBtn.style.bottom = isMobile ? `calc(${indexProduct * 20}vw + ${indexProduct * 8}px + ${featuredProduct ? '3vh + 20vw + 8px' : '3vh'})` : `calc(${indexProduct * 80}px + ${indexProduct * 8}px + ${featuredProduct ? '2vh + 80px + 8px' : '2vh'})`;
-          productImageBtn.style.transition = '';
-
-          const productImage = document.createElement('img');
-
-          productImage.src = product.imageSrc;
-          productImage.alt = product.name;
-          productImage.style.width = isMobile ? '20vw' : '80px';
-          productImage.style.height = isMobile ? '20vw' : '80px';
-          productImage.style.objectFit = 'cover';
-          productImage.style.borderRadius = '8px';
-          productImage.style.backgroundColor = '#fff';
-
-          productImage.onerror = function () {
-            productImageBtn.remove();
-          };
-
-          productImageBtn.appendChild(productImage);
-          container.appendChild(productImageBtn);
-
-          indexProduct++;
-        });
-      }
-    }, 'setProductsToShow');
-  },
-
   setResponsiveStyle: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const isMobile = window.innerWidth < 768;
       const shortHeight = window.innerHeight < 700;
+      const isMobile = easyDataLayer.uiData.isMobile;
 
       const centerControl = document.querySelector('#easy-video-commerce-nh .controls .control-center .control-center-icon-container');
-      const centerControlCheckValue = isMobile ? '4vh' : '0';
-      if (centerControl?.style?.marginBottom !== centerControlCheckValue) {
-        const extraControlsDiv = document.querySelector('#easy-video-commerce-nh .extra-control');
-        extraControlsDiv.style.bottom = isMobile ? 'calc(5vh + 14px)' : 'calc(5vh + 14px)';
+      const extraControlsDiv = document.querySelector('#easy-video-commerce-nh .extra-control');
+      const leftArrow = document.querySelector('#easy-video-commerce-nh .controls .control-left svg');
+      const rightArrow = document.querySelector('#easy-video-commerce-nh .controls .control-right svg');
 
-        const leftArrow = document.querySelector('#easy-video-commerce-nh .controls .control-left svg');
-        const rightArrow = document.querySelector('#easy-video-commerce-nh .controls .control-right svg');
-        if (shortHeight) {
-          leftArrow.style.marginBottom = isMobile ? '10vh' : '0';
-          centerControl.style.marginBottom = isMobile ? '10vh' : '0';
-          rightArrow.style.marginBottom = isMobile ? '10vh' : '0';
-        } else {
-          leftArrow.style.marginBottom = isMobile ? '5vh' : '0';
-          centerControl.style.marginBottom = isMobile ? '5vh' : '0';
-          rightArrow.style.marginBottom = isMobile ? '5vh' : '0';
-        }
+      if (!centerControl || !extraControlsDiv || !leftArrow || !rightArrow) return;
+
+      // Define valores de margin e bottom conforme contexto
+      const marginBottom = shortHeight
+        ? (isMobile ? '10vh' : '0')
+        : (isMobile ? '5vh' : '0');
+      const centerControlCheckValue = isMobile ? '4vh' : '0';
+
+      // Só aplica se necessário (evita reflow desnecessário)
+      if (centerControl.style.marginBottom !== centerControlCheckValue) {
+        easyDataLayer.setStyleHelper(extraControlsDiv, 'bottom', 'calc(5vh + 14px)');
+        easyDataLayer.setStyleHelper(leftArrow, 'margin-bottom', marginBottom);
+        easyDataLayer.setStyleHelper(centerControl, 'margin-bottom', marginBottom);
+        easyDataLayer.setStyleHelper(rightArrow, 'margin-bottom', marginBottom);
       }
     }, 'setResponsiveStyle');
   },
@@ -1044,27 +1139,30 @@ var easyDataLayer = {
       }
 
       easyDataLayer.videoData.handlePreLoadingTimeInstance = setTimeout(() => {
-        const nextIndex = videoIndex || easyDataLayer.videoData.videoIndex + 1;
+        // Corrige: se videoIndex for 0, usar explicitamente 0
+        const nextIndex = (videoIndex !== undefined && videoIndex !== null)
+          ? videoIndex
+          : easyDataLayer.videoData.videoIndex + 1;
 
         if (nextIndex >= easyDataLayer.videoData.allSources.length) return;
 
         const videos = document.querySelectorAll('#easy-video-commerce-nh video');
         const videoContainer = document.querySelector("#easy-video-commerce-nh .easy-source-container");
+        if (!videoContainer) return;
 
         for (let i = 0; i <= nextIndex; i++) {
           let video = videos[i];
 
-          // If the video doesn't exist, create it
+          // Se não existe, cria o elemento e aplica estilos via setStyleHelper
           if (!video) {
             video = document.createElement('video');
-
-            video.style.width = '100%';
-            video.style.height = '100%';
-            video.style.objectFit = 'cover';
-            video.style.position = 'absolute';
-            video.style.top = '0';
-            video.style.left = '0';
-            video.style.display = 'none';
+            easyDataLayer.setStyleHelper(video, 'width', '100%');
+            easyDataLayer.setStyleHelper(video, 'height', '100%');
+            easyDataLayer.setStyleHelper(video, 'object-fit', 'cover');
+            easyDataLayer.setStyleHelper(video, 'position', 'absolute');
+            easyDataLayer.setStyleHelper(video, 'top', '0');
+            easyDataLayer.setStyleHelper(video, 'left', '0');
+            easyDataLayer.setStyleHelper(video, 'display', 'none');
 
             video.muted = true;
             video.disablePictureInPicture = true;
@@ -1073,10 +1171,13 @@ var easyDataLayer = {
             videoContainer.appendChild(video);
           }
 
-          // If we're at the next index, set the source and load the video
+          // Só faz preload do vídeo alvo
           if (i === nextIndex) {
-            video.src = easyDataLayer.videoData.allSources[nextIndex];
-            video.load();
+            // Só recarrega se src diferente
+            if (video.src !== easyDataLayer.videoData.allSources[nextIndex]) {
+              video.src = easyDataLayer.videoData.allSources[nextIndex];
+              video.load();
+            }
           }
         }
       }, 300);
@@ -1090,14 +1191,16 @@ var easyDataLayer = {
       const btnPause = document.querySelector('#easy-video-commerce-nh .header-controls .btn-pause');
       const btnPlay = document.querySelector('#easy-video-commerce-nh .header-controls .btn-play');
 
-      if (video?.paused) {
+      if (!video) return;
+
+      if (video.paused) {
         video.play();
-        if (btnPause) btnPause.style.display = 'flex';
-        if (btnPlay) btnPlay.style.display = 'none';
+        if (btnPause) easyDataLayer.setStyleHelper(btnPause, 'display', 'flex');
+        if (btnPlay) easyDataLayer.setStyleHelper(btnPlay, 'display', 'none');
       } else {
         video.pause();
-        if (btnPause) btnPause.style.display = 'none';
-        if (btnPlay) btnPlay.style.display = 'flex';
+        if (btnPause) easyDataLayer.setStyleHelper(btnPause, 'display', 'none');
+        if (btnPlay) easyDataLayer.setStyleHelper(btnPlay, 'display', 'flex');
       }
     }, 'handlePlayPauseMedia');
   },
@@ -1111,14 +1214,16 @@ var easyDataLayer = {
       easyDataLayer.videoData.restartCurrentMediaTimeInstance = setTimeout(() => {
         const videos = document.querySelectorAll('#easy-video-commerce-nh video');
         const video = videos[easyDataLayer.videoData.videoIndex];
+        if (!video) return;
+
         video.currentTime = 0;
         video.play();
 
         const btnPause = document.querySelector('#easy-video-commerce-nh .header-controls .btn-pause');
         const btnPlay = document.querySelector('#easy-video-commerce-nh .header-controls .btn-play');
 
-        if (btnPause) btnPause.style.display = 'flex';
-        if (btnPlay) btnPlay.style.display = 'none';
+        if (btnPause) easyDataLayer.setStyleHelper(btnPause, 'display', 'flex');
+        if (btnPlay) easyDataLayer.setStyleHelper(btnPlay, 'display', 'none');
       }, 300);
     }, 'restartCurrentMedia');
   },
@@ -1130,7 +1235,10 @@ var easyDataLayer = {
       }
 
       easyDataLayer.videoData.handleEndedMediaTimeInstance = setTimeout(() => {
-        const nextIndex = videoIndex || easyDataLayer.videoData.videoIndex + 1;
+        // Corrige: permite nextIndex = 0
+        const nextIndex = (videoIndex !== undefined && videoIndex !== null)
+          ? videoIndex
+          : easyDataLayer.videoData.videoIndex + 1;
 
         if (nextIndex >= easyDataLayer.videoData.allSources.length) {
           easyDataLayer.restartCurrentMedia();
@@ -1142,19 +1250,20 @@ var easyDataLayer = {
         const oldVideo = videos[easyDataLayer.videoData.videoIndex];
         const currentVideoMuted = easyDataLayer.checkCurrentVideoMuted();
 
-        // already appears
-        if (!newVideo || newVideo?.style?.display === 'flex') return;
+        // Já está visível ou não existe
+        if (!newVideo || newVideo.style.display === 'flex') return;
 
         easyDataLayer.videoData.videoIndex = nextIndex;
-        newVideo.style.display = 'flex';
+        easyDataLayer.setStyleHelper(newVideo, 'display', 'flex');
         easyDataLayer.resetVideo(oldVideo);
         newVideo.currentTime = 0;
-        easyDataLayer.setProductsToShow();
+
         setTimeout(() => {
-          easyDataLayer.setLoadingVideo(false);
+          easyDataLayer.setAlertShow(false);
           newVideo.play();
           if (!currentVideoMuted) easyDataLayer.handleControlMuteAndUnmute(false);
         }, 150);
+
         if (!easyDataLayer.videoData.eventListenerAdded[easyDataLayer.videoData.videoIndex]) {
           easyDataLayer.setVideoEventListeners();
         } else {
@@ -1169,82 +1278,93 @@ var easyDataLayer = {
       const container = document.querySelector("#easy-video-commerce-nh-container");
       const span = document.querySelector("#easy-video-commerce-nh span.hello-message");
 
-      function applyPositionStyleUnset(element) {
-        element.style.top = 'unset';
-        element.style.bottom = 'unset';
-        element.style.left = 'unset';
-        element.style.right = 'unset';
+      if (!container || !span) return;
+
+      // Helper para resetar as posições
+      function unsetPositionStyles(element) {
+        ['top', 'bottom', 'left', 'right'].forEach(prop => {
+          easyDataLayer.setStyleHelper(element, prop, 'unset');
+        });
       }
 
-      const isMobile = window.innerWidth < 768;
-      const paddingSide = isMobile ? '8px' : '14px';
+      const paddingSide = easyDataLayer.uiData.isMobile ? '8px' : '14px';
 
       const positions = {
-        "left-top": { elem: { left: paddingSide, top: "5%" }, span: { top: "60px", left: "100px" } },
-        "left-middle-top": { elem: { left: paddingSide, top: "20%" }, span: { top: "2px", left: "90px" } },
-        "left-middle": { elem: { left: paddingSide, top: "calc(50% - 60px)" }, span: { top: "2px", left: "90px" } },
-        "left-middle-bottom": { elem: { left: paddingSide, bottom: "20%" }, span: { top: "2px", left: "90px" } },
-        "left-bottom": { elem: { left: paddingSide, bottom: "5%" }, span: { top: "2px", left: "90px" } },
-        "right-top": { elem: { right: paddingSide, top: "5%" }, span: { top: "60px", right: "100px" } },
-        "right-middle-top": { elem: { right: paddingSide, top: "20%" }, span: { top: "2px", right: "90px" } },
-        "right-middle": { elem: { right: paddingSide, top: "calc(50% - 60px)" }, span: { top: "2px", right: "90px" } },
-        "right-middle-bottom": { elem: { right: paddingSide, bottom: "20%" }, span: { top: "2px", right: "90px" } },
-        "right-bottom": { elem: { right: paddingSide, bottom: "5%" }, span: { top: "2px", right: "90px" } },
+        "left-top": { elem: { left: paddingSide, top: "5%" }, span: { top: "60px", left: "100px", right: "unset" } },
+        "left-middle-top": { elem: { left: paddingSide, top: "20%" }, span: { top: "2px", left: "90px", right: "unset" } },
+        "left-middle": { elem: { left: paddingSide, top: "calc(50% - 60px)" }, span: { top: "2px", left: "90px", right: "unset" } },
+        "left-middle-bottom": { elem: { left: paddingSide, bottom: "20%" }, span: { top: "2px", left: "90px", right: "unset" } },
+        "left-bottom": { elem: { left: paddingSide, bottom: "5%" }, span: { top: "2px", left: "90px", right: "unset" } },
+        "right-top": { elem: { right: paddingSide, top: "5%" }, span: { top: "60px", right: "100px", left: "unset" } },
+        "right-middle-top": { elem: { right: paddingSide, top: "20%" }, span: { top: "2px", right: "90px", left: "unset" } },
+        "right-middle": { elem: { right: paddingSide, top: "calc(50% - 60px)" }, span: { top: "2px", right: "90px", left: "unset" } },
+        "right-middle-bottom": { elem: { right: paddingSide, bottom: "20%" }, span: { top: "2px", right: "90px", left: "unset" } },
+        "right-bottom": { elem: { right: paddingSide, bottom: "5%" }, span: { top: "2px", right: "90px", left: "unset" } },
       };
 
-      if (container && span && (position || easyDataLayer.videoData.position)) {
-        const posi = position || easyDataLayer.videoData.position;
-        easyDataLayer.videoData.position = posi;
+      const posi = position || easyDataLayer.videoData.position;
+      if (!posi || !positions[posi]) return;
 
-        if (positions?.[posi]) {
-          applyPositionStyleUnset(container);
-          applyPositionStyleUnset(span);
-          Object.assign(container.style, positions[posi].elem);
-          Object.assign(span.style, positions[posi].span);
-        }
-      }
+      easyDataLayer.videoData.position = posi;
+
+      // Limpa estilos antigos antes de aplicar novos
+      unsetPositionStyles(container);
+      unsetPositionStyles(span);
+
+      // Aplica estilos usando setStyleHelper para manter padrão do projeto
+      Object.entries(positions[posi].elem).forEach(([prop, value]) => {
+        easyDataLayer.setStyleHelper(container, prop, value);
+      });
+      Object.entries(positions[posi].span).forEach(([prop, value]) => {
+        easyDataLayer.setStyleHelper(span, prop, value);
+      });
     }, 'setVideoSide');
   },
 
   setHelloMessage: function (msg) {
     easyDataLayer.utils.executeWithLogging(() => {
-      const cleanTimeout = (timeT) => {
-        if (timeT) {
-          clearTimeout(timeT);
-        }
-      };
+      // Helper para limpar timeout
+      const clear = (t) => t && clearTimeout(t);
 
-      if (msg && !easyDataLayer.videoData.helloMessage) {
-        easyDataLayer.videoData.helloMessage = msg;
+      // Só define a mensagem se ainda não houver uma
+      if (msg && !easyDataLayer.uiData.helloMessage) {
+        easyDataLayer.uiData.helloMessage = msg;
       }
-
       const elem = document.querySelector("#easy-video-commerce-nh span.hello-message");
+      if (!elem || !easyDataLayer.uiData.helloMessage || elem.style.display === 'flex') return;
 
-      cleanTimeout(easyDataLayer.videoData.helloMessageTimeInstance);
+      clear(easyDataLayer.uiData.helloMessageTimeInstance);
 
-      if (elem && easyDataLayer.videoData.helloMessage) {
-        elem.innerHTML = easyDataLayer.videoData.helloMessage;
-        elem.style.display = "flex";
+      const container = document.querySelector("#easy-video-commerce-nh-container");
+      if (!container) return;
+      const isMaximized = () => container.classList.contains("maximized");
 
-        easyDataLayer.videoData.helloMessageTimeInstance = setTimeout(() => {
-          if (elem) {
-            elem.style.opacity = 1;
-            cleanTimeout(easyDataLayer.videoData.helloMessageTimeInstance);
+      // Exibe mensagem apenas se não estiver maximizado
+      if (!isMaximized()) {
+        elem.innerHTML = easyDataLayer.uiData.helloMessage;
+        easyDataLayer.setStyleHelper(elem, 'display', 'flex');
+        easyDataLayer.setStyleHelper(elem, 'opacity', '0');
 
-            easyDataLayer.videoData.helloMessageTimeInstance = setTimeout(() => {
-              if (elem) {
-                elem.style.opacity = 0;
-                cleanTimeout(easyDataLayer.videoData.helloMessageTimeInstance);
-
-                easyDataLayer.videoData.helloMessageTimeInstance = setTimeout(() => {
-                  elem.style.display = "none";
-                }, 500);
-              }
-            }, 5000);
+        // Animação de fade-in após display flex
+        easyDataLayer.uiData.helloMessageTimeInstance = setTimeout(() => {
+          if (!isMaximized()) {
+            easyDataLayer.setStyleHelper(elem, 'opacity', '1');
           }
+
+          // Timeout para fade-out após 5s
+          clear(easyDataLayer.uiData.helloMessageTimeInstance);
+          easyDataLayer.uiData.helloMessageTimeInstance = setTimeout(() => {
+            easyDataLayer.setStyleHelper(elem, 'opacity', '0');
+
+            // Timeout para esconder após fade-out
+            clear(easyDataLayer.uiData.helloMessageTimeInstance);
+            easyDataLayer.uiData.helloMessageTimeInstance = setTimeout(() => {
+              easyDataLayer.setStyleHelper(elem, 'display', 'none');
+            }, 300);
+          }, 5000);
         }, 300);
       }
-    }, 'setHelloMessage');
+    }, "setHelloMessage");
   },
 
   setCustomColor: function (color) {
@@ -1252,95 +1372,109 @@ var easyDataLayer = {
       const container = document.querySelector("#easy-video-commerce-nh-container");
       const helloMsg = document.querySelector("#easy-video-commerce-nh span.hello-message");
 
-      if (container && helloMsg) {
-        container.style.borderColor = color;
-        helloMsg.style.backgroundColor = color;
+      if (!container || !helloMsg) return;
 
-        // Helper function to parse color
-        const parseColor = (color) => {
-          let r, g, b;
-          if (color.charAt(0) === '#') {
-            const rgb = color.substring(1, 7);
-            r = parseInt(rgb.substring(0, 2), 16);
-            g = parseInt(rgb.substring(2, 4), 16);
-            b = parseInt(rgb.substring(4, 6), 16);
-          } else {
-            const rgb = color.match(/\d+/g);
-            r = parseInt(rgb[0]);
-            g = parseInt(rgb[1]);
-            b = parseInt(rgb[2]);
-          }
-          return { r, g, b };
-        };
+      // Usa setStyleHelper para manter padrão do projeto
+      easyDataLayer.setStyleHelper(container, 'border-color', color);
+      easyDataLayer.setStyleHelper(helloMsg, 'background-color', color);
 
-        // Parse the color
-        const { r, g, b } = parseColor(color);
-
-        // Calculate the brightness
-        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-
-        // Set the text color based on the brightness
-        const brightnessColor = brightness > 128 ? 'black' : 'white';
-        helloMsg.style.color = brightnessColor;
-        helloMsg.style.borderColor = brightnessColor;
+      // Helper para parsear cor (hex ou rgb)
+      function parseColor(color) {
+        let r, g, b;
+        if (color.charAt(0) === '#') {
+          const hex = color.length === 4
+            ? color.replace(/^#(.)(.)(.)$/, '#$1$1$2$2$3$3')
+            : color;
+          r = parseInt(hex.substring(1, 3), 16);
+          g = parseInt(hex.substring(3, 5), 16);
+          b = parseInt(hex.substring(5, 7), 16);
+        } else {
+          const rgb = color.match(/\d+/g);
+          r = parseInt(rgb?.[0] ?? 0, 10);
+          g = parseInt(rgb?.[1] ?? 0, 10);
+          b = parseInt(rgb?.[2] ?? 0, 10);
+        }
+        return { r, g, b };
       }
+
+      // Calcula brilho para decidir cor do texto/borda
+      const { r, g, b } = parseColor(color);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const brightnessColor = brightness > 128 ? 'black' : 'white';
+
+      easyDataLayer.setStyleHelper(helloMsg, 'color', brightnessColor);
+      easyDataLayer.setStyleHelper(helloMsg, 'border-color', brightnessColor);
     }, 'setCustomColor');
   },
 
   enableDraggable: function () {
     easyDataLayer.utils.executeWithLogging(() => {
+      // Evita carregar múltiplas vezes
+      if (window._easyvcHammerLoaded) {
+        if (typeof Hammer !== "undefined") {
+          easyDataLayer.initDraggableHammer();
+        }
+        return;
+      }
+      window._easyvcHammerLoaded = true;
+
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js';
 
       script.onload = function () {
-        const container = document.querySelector('.easy-video-commerce-nh-container');
-        if (container) {
-          const hammer = new Hammer(container);
-
-          hammer.add(new Hammer.Pan({ direction: Hammer.DIRECTION_ALL, threshold: 4 }));
-
-          hammer.on('pan', function (event) {
-            if (event.direction === 8 || event.direction === 16) {
-              if (container.classList.contains('maximized')) return;
-
-              if (!easyDataLayer.dnd.isDragging) {
-
-                easyDataLayer.dnd.isDragging = true;
-                container.classList.add('dragging');
-
-                if (easyDataLayer.dnd.draggingTimeInstance) {
-                  clearTimeout(easyDataLayer.dnd.draggingTimeInstance);
-                }
-              }
-
-              const elemHeight = container.offsetHeight;
-              easyDataLayer.dnd.posY = event.center.y - (elemHeight / 2);
-
-              // Ensure posY does not move the element off-screen
-              if (easyDataLayer.dnd.posY < 0) {
-                easyDataLayer.dnd.posY = 0;
-              }
-              // For the bottom boundary
-              if (easyDataLayer.dnd.posY + elemHeight > window.innerHeight) {
-                easyDataLayer.dnd.posY = window.innerHeight - elemHeight;
-              }
-
-              container.style.top = easyDataLayer.dnd.posY + "px";
-            }
-
-            if (event.isFinal) {
-              easyDataLayer.dnd.isDragging = false;
-
-              easyDataLayer.dnd.draggingTimeInstance = setTimeout(() => {
-                container.classList.remove('dragging');
-              }, 400);
-            }
-          });
-        }
+        easyDataLayer.initDraggableHammer();
       };
 
       document.body.appendChild(script);
     }, 'enableDraggable');
+  },
+
+  initDraggableHammer: function () {
+    const container = document.querySelector('.easy-video-commerce-nh-container');
+    if (!container || typeof Hammer === "undefined") return;
+
+    // Evita múltiplas instâncias do Hammer
+    if (container._easyvcHammerInstance) return;
+
+    const hammer = new Hammer(container);
+    container._easyvcHammerInstance = hammer;
+
+    hammer.add(new Hammer.Pan({ direction: Hammer.DIRECTION_ALL, threshold: 4 }));
+
+    hammer.on('pan', function (event) {
+      if (event.direction === 8 || event.direction === 16) {
+        if (container.classList.contains('maximized')) return;
+
+        if (!easyDataLayer.dnd.isDragging) {
+          easyDataLayer.dnd.isDragging = true;
+          container.classList.add('dragging');
+          if (easyDataLayer.dnd.draggingTimeInstance) {
+            clearTimeout(easyDataLayer.dnd.draggingTimeInstance);
+          }
+        }
+
+        const elemHeight = container.offsetHeight;
+        easyDataLayer.dnd.posY = event.center.y - (elemHeight / 2);
+
+        // Ensure posY does not move the element off-screen
+        if (easyDataLayer.dnd.posY < 0) {
+          easyDataLayer.dnd.posY = 0;
+        }
+        // For the bottom boundary
+        if (easyDataLayer.dnd.posY + elemHeight > window.innerHeight) {
+          easyDataLayer.dnd.posY = window.innerHeight - elemHeight;
+        }
+
+        container.style.top = easyDataLayer.dnd.posY + "px";
+      }
+
+      if (event.isFinal) {
+        easyDataLayer.dnd.isDragging = false;
+        easyDataLayer.dnd.draggingTimeInstance = setTimeout(() => {
+          container.classList.remove('dragging');
+        }, 400);
+      }
+    });
   },
 
   utils: {
@@ -1348,48 +1482,58 @@ var easyDataLayer = {
       try {
         return fn();
       } catch (error) {
-        console.error(`[NuvemHub] Easy Video Commerce: ${message}`, error);
+        console.error(`[NuvemHub] Easy Video Commerce: ${message || 'Error'}`, error);
+        return undefined;
       }
     },
+
     isValidValue: function (value) {
-      return value !== undefined && value !== null && value !== '' && value !== 'null';
+      // Considera undefined, null, string vazia, string 'null', string 'undefined' como inválidos
+      return (
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        value !== 'null' &&
+        value !== 'undefined'
+      );
     },
+
     isEmpty: function (array) {
-      if (!array) return true;
-      return Array.isArray(array) && array?.length === 0;
+      // Garante que array-like objects e falsy sejam tratados corretamente
+      if (!array || typeof array.length !== 'number') return true;
+      return array.length === 0;
     },
-    waitForElements: function (selector) {
-      return new Promise((resolve) => {
+
+    waitForElements: function (selector, timeout = 10000, intervalTime = 100) {
+      // timeout em ms para evitar loop infinito
+      return new Promise((resolve, reject) => {
+        const start = Date.now();
         const interval = setInterval(() => {
           const elements = document.querySelectorAll(selector);
-          if (elements?.length > 0) {
+          if (elements && elements.length > 0) {
             clearInterval(interval);
             resolve(elements);
+          } else if (Date.now() - start > timeout) {
+            clearInterval(interval);
+            reject(new Error(`[NuvemHub] Easy Video Commerce: waitForElements timeout for selector: ${selector}`));
           }
-        }, 100);
+        }, intervalTime);
       });
     }
   },
 
   checkLanguage: function () {
     easyDataLayer.utils.executeWithLogging(() => {
-      const userLanguage = navigator?.language || navigator?.userLanguage;
       const supportedLanguages = ["es", "pt", "en"];
+      // Usa navigator.languages (preferências do usuário) ou fallback para navigator.language/userLanguage
+      const userLanguages = navigator?.languages || [navigator?.language || navigator?.userLanguage || "en"];
 
-      function detectLanguage() {
-        const userLanguages = navigator.languages || [userLanguage];
+      // Busca o primeiro idioma suportado
+      const detected = userLanguages
+        .map(lang => lang.slice(0, 2))
+        .find(shortLang => supportedLanguages.includes(shortLang));
 
-        for (const lang of userLanguages) {
-          const shortLang = lang.slice(0, 2);
-          if (supportedLanguages.includes(shortLang)) {
-            return shortLang;
-          }
-        }
-
-        return "en";
-      }
-
-      easyDataLayer.config.lang = detectLanguage();
+      easyDataLayer.config.lang = detected || "en";
     }, 'checkLanguage');
   },
 
@@ -1402,17 +1546,32 @@ var easyDataLayer = {
   },
 
   main: async function () {
-    easyDataLayer.utils.executeWithLogging(async () => {
-      if (document.querySelector('#easy-video-commerce-nh')) return;
-
+    await easyDataLayer.utils.executeWithLogging(async () => {
       console.log("[NuvemHub] Easy Video Commerce: starting...");
-      easyDataLayer.analytics.uuid = easyDataLayer.generateUUIDv4();
-      easyDataLayer.sendAnalyticsEvent('init');
 
       easyDataLayer.setup();
+
+      if (easyDataLayer.config.debug) {
+        console.log("[NuvemHub] Easy Video Commerce: debug mode is enabled");
+        const previousContainer = document.getElementById("easy-video-commerce-nh-container");
+        const previousFade = document.getElementById("easy-video-commerce-nh-fade-desktop");
+        if (previousContainer) previousContainer.remove();
+        if (previousFade) previousFade.remove();
+      }
+
+      if (document.querySelector('#easy-video-commerce-nh')) {
+        console.log("[NuvemHub] Easy Video Commerce: instance already running");
+        return;
+      }
+
+      easyDataLayer.analytics.uuid = easyDataLayer.generateUUIDv4();
+      easyDataLayer.sendAnalyticsEvent('init');
       easyDataLayer.checkLanguage();
 
-      if (!easyDataLayer.utils.isValidValue(easyDataLayer.config?.storeId)) return;
+      if (!easyDataLayer.utils.isValidValue(easyDataLayer.store.storeId)) {
+        console.log("[NuvemHub] Easy Video Commerce: storeId is not defined");
+        return;
+      }
 
       const result = await easyDataLayer.getEasyCampaigns();
 
@@ -1426,7 +1585,6 @@ var easyDataLayer = {
 
       if (result.campaigns.length > 1 && result?.abTestId) {
         easyDataLayer.analytics.testId = result.abTestId;
-
         campaign = split ? result.campaigns[0] : result.campaigns[1];
       }
 
@@ -1436,23 +1594,31 @@ var easyDataLayer = {
       easyDataLayer.observeUrlChange();
 
       await easyDataLayer.utils.waitForElements("#easy-video-commerce-nh video, #easy-video-commerce-nh span.hello-message");
+
       const videos = campaign?.["videos"];
-      if (easyDataLayer.utils.isEmpty(videos)) return;
+      if (easyDataLayer.utils.isEmpty(videos)) {
+        console.log("[NuvemHub] Easy Video Commerce: no videos found in the campaign");
+        return;
+      }
 
       easyDataLayer.setSource(videos);
       easyDataLayer.setVideoSide(campaign?.["position"]);
       easyDataLayer.setHelloMessage(campaign?.["helloMessage"]);
-      if (campaign?.personalization?.color) {
-        easyDataLayer.setCustomColor(campaign.personalization.color);
+      if (result?.personalization?.color) {
+        easyDataLayer.setCustomColor(result.personalization.color);
       }
-      if (campaign?.whatsapp) {
-        const numberOnly = campaign.whatsapp?.replace(/\D/g, '');
-        easyDataLayer.config.whatsapp = numberOnly;
-        easyDataLayer.setWppEvent();
+
+      easyDataLayer.identifyWhatsappNumberOnWebsite();
+
+      if (result?.whatsapp) {
+        const numberOnly = result.whatsapp?.replace(/\D/g, '');
+        easyDataLayer.store.whatsapp = numberOnly;
+        easyDataLayer.setupWppEvent();
       }
+
       easyDataLayer.enableDraggable();
     }, 'main');
-  }
+  },
 };
 
 window.easyDataLayer = easyDataLayer;
