@@ -1559,10 +1559,11 @@ var easyDataLayer = {
         if (previousFade) previousFade.remove();
       }
 
-      if (document.querySelector('#easy-video-commerce-nh')) {
+      if (window._easyvcInitLoaded || document.querySelector('#easy-video-commerce-nh')) {
         console.log("[NuvemHub] Easy Video Commerce: instance already running");
         return;
       }
+      window._easyvcInitLoaded = true;
 
       easyDataLayer.analytics.uuid = easyDataLayer.generateUUIDv4();
       easyDataLayer.sendAnalyticsEvent('init');
