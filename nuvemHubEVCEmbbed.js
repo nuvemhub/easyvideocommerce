@@ -908,7 +908,7 @@ var easyDataLayer = {
         easyDataLayer.setStyleHelper(container, 'display', value);
 
         const isMaximized = container.classList.contains("maximized");
-        if (fade && isMaximized) {
+        if (fade && isMaximized && !easyDataLayer.uiData.isMobile) {
           easyDataLayer.setStyleHelper(fade, 'display', value);
         }
       };
