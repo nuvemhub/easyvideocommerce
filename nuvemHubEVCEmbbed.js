@@ -284,7 +284,7 @@ var easyDataLayer = {
         easyDataLayer.setStyleHelper(container, 'width', "calc((100vh - 28px) * 0.6)");
         if (sourceContainer) easyDataLayer.setStyleHelper(sourceContainer, 'border-radius', "8px");
         const fadeDesktop = document.querySelector("#easy-video-commerce-nh-fade-desktop");
-        if (fadeDesktop) {
+        if (fadeDesktop && !easyDataLayer.uiData.isMobile) {
           easyDataLayer.setStyleHelper(fadeDesktop, 'display', 'flex');
           easyDataLayer.setStyleHelper(fadeDesktop, 'z-index', '1909999999');
         }
@@ -321,6 +321,7 @@ var easyDataLayer = {
 
       easyDataLayer.handleControlMuteAndUnmute(true);
 
+      easyDataLayer.setStyleHelper(fadeDesktop, 'display', 'none');
       easyDataLayer.setStyleHelper(container, 'border-width', '3px');
       container.classList.toggle("maximized");
       easyDataLayer.setStyleHelper(container, 'z-index', '16000');
@@ -447,9 +448,7 @@ var easyDataLayer = {
         qs("#easy-video-commerce-nh .header-controls .btn-pause")?.addEventListener("click", easyDataLayer.handlePlayPauseMedia);
         qs("#easy-video-commerce-nh .header-controls .btn-play")?.addEventListener("click", easyDataLayer.handlePlayPauseMedia);
         qs("#easy-video-commerce-nh .header-controls .btn-close")?.addEventListener("click", easyDataLayer.handleMinimize);
-        if (!easyDataLayer.uiData.isMobile) {
-          qs("#easy-video-commerce-nh-fade-desktop")?.addEventListener("click", () => easyDataLayer.handleMinimize(false));
-        }
+        qs("#easy-video-commerce-nh-fade-desktop")?.addEventListener("click", () => easyDataLayer.handleMinimize(false));
         qs("#easy-video-commerce-nh .controls .control-left")?.addEventListener("click", handleControlLeft);
         qs("#easy-video-commerce-nh .controls .control-right")?.addEventListener("click", handleControlRight);
         qs("#easy-video-commerce-nh .controls .control-center")?.addEventListener("click", easyDataLayer.handleControlMuteAndUnmute);
