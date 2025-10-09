@@ -477,9 +477,9 @@ var easyDataLayer = {
         if (modalCommentsTitle && modalCommentsInput && modalCommentsSubmit) {
           modalCommentsTitle.textContent = easyDataLayer.i18n({ pt: 'Comentários', es: 'Comentarios', en: 'Comments' });
           modalCommentsInput.placeholder = easyDataLayer.i18n({
-            pt: 'Deixe sua opinião ou dúvida! Seu feedback nos ajuda a melhorar cada vez mais. 😊',
-            es: '¡Deja tu opinión o duda! Tu feedback nos ayuda a mejorar cada vez más. 😊',
-            en: 'Leave your opinion or question! Your feedback helps us improve more and more. 😊'
+            pt: 'Deixe sua opinião ou dúvida! Seu feedback nos ajuda a melhorar cada vez mais.',
+            es: '¡Deja tu opinión o duda! Tu feedback nos ayuda a mejorar cada vez más.',
+            en: 'Leave your opinion or question! Your feedback helps us improve more and more.'
           });
           modalCommentsSubmit.textContent = easyDataLayer.i18n({ pt: 'Enviar', es: 'Enviar', en: 'Send' });
         }
@@ -582,9 +582,9 @@ var easyDataLayer = {
           easyDataLayer.utils.executeWithLogging(() => {
             easyDataLayer.sendAnalyticsEvent('wpp');
             const helloWppText = easyDataLayer.i18n({
-              pt: `Olá! Vi um vídeo na loja e quero saber mais. 😊\n\n${window.location.href}`,
-              es: `¡Hola! Vi un video en la tienda y quiero saber más. 😊\n\n${window.location.href}`,
-              en: `Hi! I saw a video in the store and want to know more. 😊\n\n${window.location.href}`
+              pt: `Olá! Vi um vídeo na loja e quero saber mais.\n\n${window.location.href}`,
+              es: `¡Hola! Vi un video en la tienda y quiero saber más.\n\n${window.location.href}`,
+              en: `Hi! I saw a video in the store and want to know more.\n\n${window.location.href}`
             });
             window.open(
               `https://wa.me/${easyDataLayer.store.whatsapp}?text=${encodeURIComponent(helloWppText)}`,
