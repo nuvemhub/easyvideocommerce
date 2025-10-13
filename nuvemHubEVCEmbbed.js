@@ -1639,7 +1639,7 @@ function clearEasyVCTimeouts() {
 }
 
 // Origin
-window._easyvcScriptSource = "gtm"; // "gtm" ou "legacy"
+window._easyvcScriptSource = "legacy"; // "gtm" ou "legacy"
 
 const canRunEasyVC =
   !window._easyvcPriority || // Nunca rodou antes
