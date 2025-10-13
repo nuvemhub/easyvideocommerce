@@ -62,12 +62,13 @@ var easyDataLayer = {
     window.easyDataLayer.utils.executeWithLogging(() => {
       const isLocalhost = window.location.hostname === 'localhost';
 
-      if (isLocalhost || window._easyvcPriority === "debug") {
+      if (isLocalhost || sessionStorage.getItem('nheasydebug') === 'true') {
         Object.assign(window.easyDataLayer.config, {
           embbedUrl: "http://localhost:3002/dev/playground",
+          // apiUrl: "https://easyvc.nuvemhub.com.br",
           apiUrl: "http://localhost:3002",
         });
-        window.easyDataLayer.store.storeId = '68db768056203d3a5512d433';
+        window.easyDataLayer.store.storeId = '68e1fa715c6c354ace65366d';
         console.log('[NuvemHub] Easy Video Commerce: Partial Setup for Debug/Localhost mode.');
       }
 
@@ -100,7 +101,7 @@ var easyDataLayer = {
 
   sendAnalyticsEvent: function (eventType, data) {
     window.easyDataLayer.utils.executeWithLogging(() => {
-      if (!eventType || window._easyvcPriority === "debug") return;
+      if (!eventType || sessionStorage.getItem('nheasydebug') === 'true') return;
 
       const pushData = {
         easyvc_uuid: window.easyDataLayer.analytics.uuid,
@@ -510,7 +511,7 @@ var easyDataLayer = {
         window.easyDataLayer.setStyleHelper(likeBtn, 'pointer-events', 'all');
       }, 350);
 
-      if (window._easyvcPriority === "debug" && window.location.hostname.includes("nuvemhub.com.br")) {
+      if (sessionStorage.getItem('nheasydebug') === 'true' && window.location.hostname.includes("nuvemhub.com.br")) {
         window.easyDataLayer.sendAnalyticsEvent('purchase', { value: 99.9, currency: 'BRL' });
       }
     }, 'handleLike');
@@ -1556,7 +1557,7 @@ var easyDataLayer = {
       window.easyDataLayer.analytics.uuid = window.easyDataLayer.generateUUIDv4();
       window.easyDataLayer.sendAnalyticsEvent('init');
       window.easyDataLayer.checkLanguage();
-
+      console.log("storeID", window.easyDataLayer.store.storeId);
       if (!window.easyDataLayer.utils.isValidValue(window.easyDataLayer.store.storeId)) {
         console.log("[NuvemHub] Easy Video Commerce: storeId is not defined");
         return;
@@ -1637,18 +1638,28 @@ function clearEasyVCTimeouts() {
   }
 }
 
-if (window._easyvcPriority !== "gtm") {
-  console.log("[NuvemHub] Easy Video Commerce: Clearing previous instance...");
-  const previousContainer = document.getElementById("easy-video-commerce-nh-container");
-  const previousFade = document.getElementById("easy-video-commerce-nh-fade-desktop");
-  if (previousContainer) previousContainer.remove();
-  if (previousFade) previousFade.remove();
-  clearEasyVCTimeouts();
-  delete window.easyDataLayer;
-  window._easyvcInitLoaded = false;
-  window._easyvcPriority = "gtm";
+// Origin
+window._easyvcScriptSource = "gtm"; // "gtm" ou "legacy"
+
+const canRunEasyVC =
+  !window._easyvcPriority || // Nunca rodou antes
+  (window._easyvcPriority !== "gtm" && window._easyvcScriptSource === "gtm"); // GTM sobrescreve legacy
+
+if (canRunEasyVC) {
+  if (window._easyvcPriority && window._easyvcPriority !== window._easyvcScriptSource) {
+    console.log("[NuvemHub] Easy Video Commerce: Clearing previous instance...");
+    const previousContainer = document.getElementById("easy-video-commerce-nh-container");
+    const previousFade = document.getElementById("easy-video-commerce-nh-fade-desktop");
+    if (previousContainer) previousContainer.remove();
+    if (previousFade) previousFade.remove();
+    clearEasyVCTimeouts();
+    delete window.easyDataLayer;
+    window._easyvcInitLoaded = false;
+  }
+
+  window._easyvcPriority = window._easyvcScriptSource;
+
+  window.easyDataLayer = easyDataLayer;
+
+  window.easyDataLayer.main();
 }
-
-window.easyDataLayer = easyDataLayer;
-
-window.easyDataLayer.main();
