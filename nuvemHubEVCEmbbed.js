@@ -1557,7 +1557,7 @@ var easyDataLayer = {
       window.easyDataLayer.analytics.uuid = window.easyDataLayer.generateUUIDv4();
       window.easyDataLayer.sendAnalyticsEvent('init');
       window.easyDataLayer.checkLanguage();
-      console.log("storeID", window.easyDataLayer.store.storeId);
+
       if (!window.easyDataLayer.utils.isValidValue(window.easyDataLayer.store.storeId)) {
         console.log("[NuvemHub] Easy Video Commerce: storeId is not defined");
         return;
