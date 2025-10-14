@@ -6,9 +6,10 @@
   }
 
   const url = new URL(script.src);
-  const storeId = url.searchParams.get('storeId');
-  if (!storeId) {
-    console.error('[NuvemHub] Easy Video Commerce: storeId not found in script URL parameters.');
+  const storeId = url.searchParams.get('storeid');
+  const easySrc = url.searchParams.get('easysrc');
+  if (!storeId || !easySrc) {
+    console.error('[NuvemHub] Easy Video Commerce: storeId or easysrc not found in script URL parameters.');
     return;
   }
 
@@ -46,6 +47,6 @@
   // Carrega o script principal
   const s = document.createElement('script');
   s.defer = true;
-  s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${version}/dist/nuvemHubEVCEmbbed.min.js?storeId=${storeId}&vapp=${version}`;
+  s.src = `https://cdn.jsdelivr.net/gh/nuvemhub/easyvideocommerce@${version}/dist/nuvemHubEVCEmbbed.min.js?storeid=${storeId}&vapp=${version}&easysrc=${easySrc}`;
   document.body.appendChild(s);
 })();

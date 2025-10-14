@@ -79,7 +79,7 @@ var easyDataLayer = {
       }
 
       const url = new URL(script.src);
-      const storeId = url.searchParams.get('storeId');
+      const storeId = url.searchParams.get('storeid');
       const scriptVersion = url.searchParams.get('vapp');
 
       if (!storeId || !scriptVersion) {
@@ -1639,7 +1639,13 @@ function clearEasyVCTimeouts() {
 }
 
 // Origin
-window._easyvcScriptSource = "gtm"; // "gtm" ou "legacy"
+if (document?.currentScript?.src) {
+  const url = new URL(document.currentScript.src);
+  const easySrc = url.searchParams.get('easysrc');
+  if (easySrc) {
+    window._easyvcScriptSource = easySrc; // "gtm" ou "legacy"
+  }
+}
 
 const canRunEasyVC =
   !window._easyvcPriority || // Nunca rodou antes
