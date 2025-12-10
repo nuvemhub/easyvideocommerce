@@ -40,6 +40,7 @@ var easyDataLayer = {
     hasAlertMessageEventListener: false,
     alertMessageTimeInstance: null,
     modalCommentsTimeInstance: null,
+    urlObserver: null,
   },
 
   dnd: {
@@ -58,6 +59,11 @@ var easyDataLayer = {
     errorTriggered: false,
   },
 
+  refs: {
+    styleId: 'easy-video-commerce-nh-style',
+    whatsappHandler: null,
+  },
+
   setup: function () {
     window.easyDataLayer.utils.executeWithLogging(() => {
       const isLocalhost = window.location.hostname === 'localhost';
@@ -68,7 +74,7 @@ var easyDataLayer = {
           // apiUrl: "https://easyvc.nuvemhub.com.br",
           apiUrl: "http://localhost:3002",
         });
-        window.easyDataLayer.store.storeId = '68e1fa715c6c354ace65366d';
+        window.easyDataLayer.store.storeId = '68f15ffabd4ba656e935811f';
         console.log('[NuvemHub] Easy Video Commerce: Partial Setup for Debug/Localhost mode.');
       }
 
@@ -354,6 +360,14 @@ var easyDataLayer = {
     const handleControlLeft = () => window.easyDataLayer.checkCurrentMediaAndPlayNext(false);
     const handleControlRight = () => window.easyDataLayer.checkCurrentMediaAndPlayNext(true);
 
+    // Garante que uma instância antiga não permaneça montada antes de injetar o HTML
+    window.easyDataLayer.destroyDomElements();
+
+    if (!window?.easyDataLayer?.config?.embbedUrl) {
+      console.error('[NuvemHub] Easy Video Commerce: embbedUrl not configured.');
+      return;
+    }
+
     fetch(`${window.easyDataLayer.config.embbedUrl}/nuvemHubEVCScope.html`)
       .then(response => response.text())
       .then(data => {
@@ -397,7 +411,12 @@ var easyDataLayer = {
         document.body.appendChild(container);
 
         // CSS global para o widget
-        const style = document.createElement('style');
+        let style = document.getElementById(window.easyDataLayer.refs.styleId);
+        if (!style) {
+          style = document.createElement('style');
+          style.id = window.easyDataLayer.refs.styleId;
+        }
+        style.setAttribute('data-easyvc-style', 'true');
         style.innerHTML = `
         #easy-video-commerce-nh button,
         #easy-video-commerce-nh button:focus,
@@ -437,7 +456,9 @@ var easyDataLayer = {
           -webkit-tap-highlight-color: transparent !important;
         }
       `;
-        document.head.appendChild(style);
+        if (!style?.parentElement) {
+          document.head.appendChild(style);
+        }
 
         // Adiciona listeners de controles
         const qs = (sel) => document.querySelector(sel);
@@ -570,13 +591,14 @@ var easyDataLayer = {
       const btnWpp = document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp");
       if (!btnWpp) return;
 
-      // Remove event listener anterior para evitar múltiplos binds
-      btnWpp.replaceWith(btnWpp.cloneNode(true));
-      const newBtnWpp = document.querySelector("#easy-video-commerce-nh .extra-control .btn-wpp");
+      if (window?.easyDataLayer?.refs?.whatsappHandler) {
+        btnWpp.removeEventListener('click', window.easyDataLayer.refs.whatsappHandler);
+        window.easyDataLayer.refs.whatsappHandler = null;
+      }
 
-      if (window.easyDataLayer.store.whatsapp) {
-        window.easyDataLayer.setStyleHelper(newBtnWpp, 'display', 'flex');
-        newBtnWpp.addEventListener("click", function () {
+      if (window?.easyDataLayer?.store?.whatsapp) {
+        window.easyDataLayer.setStyleHelper(btnWpp, 'display', 'flex');
+        const handler = function () {
           window.easyDataLayer.utils.executeWithLogging(() => {
             window.easyDataLayer.sendAnalyticsEvent('wpp');
             const helloWppText = window.easyDataLayer.i18n({
@@ -589,9 +611,11 @@ var easyDataLayer = {
               '_blank'
             );
           }, 'handleWppContact');
-        });
+        };
+        btnWpp.addEventListener('click', handler);
+        window.easyDataLayer.refs.whatsappHandler = handler;
       } else {
-        window.easyDataLayer.setStyleHelper(newBtnWpp, 'display', 'none');
+        window.easyDataLayer.setStyleHelper(btnWpp, 'display', 'none');
       }
     }, 'setupWppEvent');
   },
@@ -814,26 +838,24 @@ var easyDataLayer = {
 
   observeUrlChange: function () {
     window.easyDataLayer.utils.executeWithLogging(() => {
+      if (window.easyDataLayer?.uiData?.urlObserver) return;
+
       let oldHref = document.location.pathname;
       const body = document.body;
 
-      // Helper para remover container e fade
-      const removeEasyVCElements = () => {
-        const container = document.getElementById('easy-video-commerce-nh-container');
-        const fadeDesktop = document.getElementById('easy-video-commerce-nh-fade-desktop');
-        if (container) container.remove();
-        if (fadeDesktop) fadeDesktop.remove();
-      };
 
       const observer = new MutationObserver(() => {
         if (oldHref !== document.location.pathname) {
           oldHref = document.location.pathname;
-          removeEasyVCElements();
-          console.log("[NuvemHub] Easy Video Commerce: observeUrlChange - elements removed");
+          window.easyDataLayer.destroy('url-change');
+          window.easyDataLayer.main();
         }
       });
 
-      observer.observe(body, { childList: true, subtree: true });
+      window.easyDataLayer.uiData.urlObserver = observer;
+      if (body) {
+        observer.observe(body, { childList: true, subtree: true });
+      }
     }, 'observeUrlChange');
   },
 
@@ -863,6 +885,70 @@ var easyDataLayer = {
       document.removeEventListener('touchmove', window.easyDataLayer.disableZoomPage);
       document.removeEventListener('dblclick', window.easyDataLayer.disableDoubleTapZoom);
     }, 'removeDisableZoomPageEvent');
+  },
+
+  destroyDomElements: function () {
+    window.easyDataLayer.utils.executeWithLogging(() => {
+      const container = document.getElementById('easy-video-commerce-nh-container');
+      if (container?._easyvcHammerInstance && typeof container._easyvcHammerInstance.destroy === 'function') {
+        try {
+          container._easyvcHammerInstance.destroy();
+        } catch (error) {
+          console.error('[NuvemHub] Easy Video Commerce: destroyDomElements - hammer destroy failed', error);
+        }
+      }
+
+      if (container) {
+        if (window.easyDataLayer.refs.whatsappHandler) {
+          const btnWpp = container.querySelector('.extra-control .btn-wpp');
+          if (btnWpp) {
+            btnWpp.removeEventListener('click', window.easyDataLayer.refs.whatsappHandler);
+          }
+        }
+        container.remove();
+      }
+
+      const fadeDesktop = document.getElementById('easy-video-commerce-nh-fade-desktop');
+      if (fadeDesktop) {
+        fadeDesktop.remove();
+      }
+
+      const style = document.getElementById(window.easyDataLayer.refs.styleId);
+      if (style) {
+        style.remove();
+      }
+
+      window.easyDataLayer.refs.whatsappHandler = null;
+    }, 'destroyDomElements');
+  },
+
+  destroy: function (reason = 'manual') {
+    window.easyDataLayer.utils.executeWithLogging(() => {
+      clearEasyVCTimeouts();
+      window.easyDataLayer.removeDisableZoomPageEvent();
+      window.easyDataLayer.destroyDomElements();
+
+      if (window.easyDataLayer.refs.whatsappHandler) {
+        window.easyDataLayer.refs.whatsappHandler = null;
+      }
+
+      window.easyDataLayer.videoData.playNextFireCalls = 0;
+      window.easyDataLayer.videoData.preloadStarted = false;
+      window.easyDataLayer.videoData.videoIndex = 0;
+      window.easyDataLayer.videoData.allSources = [];
+      window.easyDataLayer.videoData.eventListenerAdded = [];
+      window.easyDataLayer.videoData.allVideosAttachedData = [];
+
+      window.easyDataLayer.analytics.viewTriggered = false;
+      window.easyDataLayer.analytics.errorTriggered = false;
+
+      window.easyDataLayer.uiData.helloMessage = null;
+      window.easyDataLayer.uiData.hasAlertMessageEventListener = false;
+
+      window._easyvcInitLoaded = false;
+
+      console.log(`[NuvemHub] Easy Video Commerce: destroyed (${reason})`);
+    }, 'destroy');
   },
 
   getEasyCampaigns: function () {
@@ -1548,7 +1634,12 @@ var easyDataLayer = {
 
       window.easyDataLayer.setup();
 
-      if (window._easyvcInitLoaded || document.querySelector('#easy-video-commerce-nh')) {
+      const existingWidget = document.querySelector('#easy-video-commerce-nh');
+      if (window._easyvcInitLoaded && !existingWidget) {
+        window._easyvcInitLoaded = false;
+      }
+
+      if (window._easyvcInitLoaded || existingWidget) {
         console.log("[NuvemHub] Easy Video Commerce: instance already running");
         return;
       }
@@ -1614,19 +1705,46 @@ var easyDataLayer = {
 function clearEasyVCTimeouts() {
   try {
     // VideoData
-    if (window.easyDataLayer?.videoData?.playNextFireTimeInstance) clearTimeout(window.easyDataLayer.videoData.playNextFireTimeInstance);
-    if (window.easyDataLayer?.videoData?.handlePreLoadingTimeInstance) clearTimeout(window.easyDataLayer.videoData.handlePreLoadingTimeInstance);
-    if (window.easyDataLayer?.videoData?.handleEndedMediaTimeInstance) clearTimeout(window.easyDataLayer.videoData.handleEndedMediaTimeInstance);
-    if (window.easyDataLayer?.videoData?.restartCurrentMediaTimeInstance) clearTimeout(window.easyDataLayer.videoData.restartCurrentMediaTimeInstance);
-    if (window.easyDataLayer?.videoData?.muteTimeInstance) clearTimeout(window.easyDataLayer.videoData.muteTimeInstance);
+    if (window.easyDataLayer?.videoData?.playNextFireTimeInstance) {
+      clearTimeout(window.easyDataLayer.videoData.playNextFireTimeInstance);
+      window.easyDataLayer.videoData.playNextFireTimeInstance = null;
+    }
+    if (window.easyDataLayer?.videoData?.handlePreLoadingTimeInstance) {
+      clearTimeout(window.easyDataLayer.videoData.handlePreLoadingTimeInstance);
+      window.easyDataLayer.videoData.handlePreLoadingTimeInstance = null;
+    }
+    if (window.easyDataLayer?.videoData?.handleEndedMediaTimeInstance) {
+      clearTimeout(window.easyDataLayer.videoData.handleEndedMediaTimeInstance);
+      window.easyDataLayer.videoData.handleEndedMediaTimeInstance = null;
+    }
+    if (window.easyDataLayer?.videoData?.restartCurrentMediaTimeInstance) {
+      clearTimeout(window.easyDataLayer.videoData.restartCurrentMediaTimeInstance);
+      window.easyDataLayer.videoData.restartCurrentMediaTimeInstance = null;
+    }
+    if (window.easyDataLayer?.videoData?.muteTimeInstance) {
+      clearTimeout(window.easyDataLayer.videoData.muteTimeInstance);
+      window.easyDataLayer.videoData.muteTimeInstance = null;
+    }
 
     // UIData
-    if (window.easyDataLayer?.uiData?.helloMessageTimeInstance) clearTimeout(window.easyDataLayer.uiData.helloMessageTimeInstance);
-    if (window.easyDataLayer?.uiData?.alertMessageTimeInstance) clearTimeout(window.easyDataLayer.uiData.alertMessageTimeInstance);
-    if (window.easyDataLayer?.uiData?.modalCommentsTimeInstance) clearTimeout(window.easyDataLayer.uiData.modalCommentsTimeInstance);
+    if (window.easyDataLayer?.uiData?.helloMessageTimeInstance) {
+      clearTimeout(window.easyDataLayer.uiData.helloMessageTimeInstance);
+      window.easyDataLayer.uiData.helloMessageTimeInstance = null;
+    }
+    if (window.easyDataLayer?.uiData?.alertMessageTimeInstance) {
+      clearTimeout(window.easyDataLayer.uiData.alertMessageTimeInstance);
+      window.easyDataLayer.uiData.alertMessageTimeInstance = null;
+    }
+    if (window.easyDataLayer?.uiData?.modalCommentsTimeInstance) {
+      clearTimeout(window.easyDataLayer.uiData.modalCommentsTimeInstance);
+      window.easyDataLayer.uiData.modalCommentsTimeInstance = null;
+    }
 
     // DnD
-    if (window.easyDataLayer?.dnd?.draggingTimeInstance) clearTimeout(window.easyDataLayer.dnd.draggingTimeInstance);
+    if (window.easyDataLayer?.dnd?.draggingTimeInstance) {
+      clearTimeout(window.easyDataLayer.dnd.draggingTimeInstance);
+      window.easyDataLayer.dnd.draggingTimeInstance = null;
+    }
 
     // ProgressBarAction (remove listener)
     if (window.easyDataLayer?.videoData?.removeEventListenerProgressBarAction) {
@@ -1654,13 +1772,17 @@ const canRunEasyVC =
 if (canRunEasyVC) {
   if (window._easyvcPriority && window._easyvcPriority !== window._easyvcScriptSource) {
     console.log("[NuvemHub] Easy Video Commerce: Clearing previous instance...");
-    const previousContainer = document.getElementById("easy-video-commerce-nh-container");
-    const previousFade = document.getElementById("easy-video-commerce-nh-fade-desktop");
-    if (previousContainer) previousContainer.remove();
-    if (previousFade) previousFade.remove();
-    clearEasyVCTimeouts();
+    if (window.easyDataLayer?.destroy) {
+      window.easyDataLayer.destroy('priority-conflict');
+    } else {
+      const previousContainer = document.getElementById("easy-video-commerce-nh-container");
+      const previousFade = document.getElementById("easy-video-commerce-nh-fade-desktop");
+      if (previousContainer) previousContainer.remove();
+      if (previousFade) previousFade.remove();
+      clearEasyVCTimeouts();
+      window._easyvcInitLoaded = false;
+    }
     delete window.easyDataLayer;
-    window._easyvcInitLoaded = false;
   }
 
   window._easyvcPriority = window._easyvcScriptSource;
