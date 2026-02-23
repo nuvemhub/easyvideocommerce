@@ -1605,7 +1605,7 @@ var easyDataLayer = {
     },
 
     waitForPageIdle: function () {
-      const SETTLE_DELAY = 1000;
+      const SETTLE_DELAY = 500;
       return new Promise((resolve) => {
         const settle = () => setTimeout(resolve, SETTLE_DELAY);
         if (document.readyState === 'complete') {
