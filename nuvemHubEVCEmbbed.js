@@ -1602,6 +1602,18 @@ var easyDataLayer = {
           }
         }, intervalTime);
       });
+    },
+
+    waitForPageIdle: function () {
+      const SETTLE_DELAY = 1000;
+      return new Promise((resolve) => {
+        const settle = () => setTimeout(resolve, SETTLE_DELAY);
+        if (document.readyState === 'complete') {
+          settle();
+        } else {
+          window.addEventListener('load', settle, { once: true });
+        }
+      });
     }
   },
 
@@ -1653,6 +1665,8 @@ var easyDataLayer = {
         console.log("[NuvemHub] Easy Video Commerce: storeId is not defined");
         return;
       }
+
+      await window.easyDataLayer.utils.waitForPageIdle();
 
       const result = await window.easyDataLayer.getEasyCampaigns();
 
